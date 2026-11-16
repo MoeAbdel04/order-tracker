@@ -1155,7 +1155,7 @@ if (LIVE) {  // only the local server (tracker.py --serve) can run a refresh or 
   btn.onclick = async () => {
     btn.disabled = true; btn.classList.add("busy"); label.textContent = "Checking inbox…";
     try {
-      const r = await (await fetch("/refresh", {method: "POST"})).json();
+      const r = await (await fetch("/refresh", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"})).json();
       if (!r.ok) throw new Error(r.error || "refresh failed");
       location.reload();
     } catch (e) {

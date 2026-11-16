@@ -69,6 +69,7 @@ ACCOUNTS = {
 }
 DEFAULT_DAYS = 45
 RETENTION_DAYS = 120
+IMAP_TIMEOUT = 60  # seconds per IMAP operation
 
 RETAILERS = {
     "Target": "target",
@@ -409,17 +410,33 @@ def fetch_new(state, days, name):
     if not pw:
         return None
     sub = state["accounts"].setdefault(name, {"uidvalidity": None, "last_uid": 0})
+    # A stalled connection raises after IMAP_TIMEOUT instead of blocking the server lock forever.
+    imap = imaplib.IMAP4_SSL(acct["host"], 993, timeout=IMAP_TIMEOUT)
+    try:
+        added = scan_mailbox(imap, state, sub, acct, pw, days, name)
+        imap.logout()
+        return added
+    finally:
+        try:
+            imap.shutdown()  # no-op after logout; closes the socket when the scan failed
+        except Exception:
+            pass
+
+
+def scan_mailbox(imap, state, sub, acct, pw, days, name):
     prefix = acct["prefix"]
     mine = (lambda k: k.startswith(prefix)) if prefix else (lambda k: ":" not in k)
-    imap = imaplib.IMAP4_SSL(acct["host"], 993)
     imap.login(acct["email"], pw)
     typ, data = imap.select(acct["mailbox"], readonly=True)
     if typ != "OK":
         raise RuntimeError(f"{name}: can't open {acct['mailbox']}")
     uidvalidity = imap.response("UIDVALIDITY")[1][0].decode()
     if sub.get("uidvalidity") != uidvalidity:
-        sub.update(uidvalidity=uidvalidity, last_uid=0)
+        sub.update(uidvalidity=uidvalidity, last_uid=0, retry={})
         state["emails"] = {k: v for k, v in state["emails"].items() if not mine(k)}
+    # uid -> email date for order emails whose body fetch or parse failed: tried again every run
+    # (so a parser fix picks them up without --rescan) until they age out of retention.
+    retry = sub.setdefault("retry", {})
 
     since = (datetime.now() - timedelta(days=days)).strftime("%d-%b-%Y")
     senders = " ".join(f'FROM "{k}"' for k in RETAILERS.values())
@@ -429,7 +446,9 @@ def fetch_new(state, days, name):
     typ, data = imap.uid("SEARCH", None, query)
     uids = [int(u) for u in (data[0] or b"").split()] if typ == "OK" else []
     uids = [u for u in uids if u > sub["last_uid"]]
-    logging.info("%s: %d new retailer emails", name, len(uids))
+    logging.info("%s: %d new retailer emails, %d to retry", name, len(uids), len(retry))
+    newest = max(uids, default=sub["last_uid"])
+    uids = sorted(set(uids) | {int(u) for u in retry})
 
     added = 0
     for i in range(0, len(uids), 200):
@@ -445,23 +464,30 @@ def fetch_new(state, days, name):
             status = classify(subject) if retailer else None
             if status in (None, "skip"):
                 continue
-            typ, body = imap.uid("FETCH", str(uid), "(BODY.PEEK[])")
-            raw = next((b[1] for b in body if isinstance(b, tuple)), None)
-            if not raw:
-                continue
-            msg = email.message_from_bytes(raw)
             try:
                 date = parsedate_to_datetime(h["Date"]).astimezone(timezone.utc).isoformat()
             except Exception:
                 date = datetime.now(timezone.utc).isoformat()
+            first_failure = str(uid) not in retry
+            retry[str(uid)] = retry.get(str(uid)) or date  # cleared below once the email is stored
+            typ, body = imap.uid("FETCH", str(uid), "(BODY.PEEK[])")
+            raw = next((b[1] for b in body if isinstance(b, tuple)), None)
+            if not raw:
+                logging.warning("%s: empty body for uid %s, will retry: %s", name, uid, subject)
+                continue
+            msg = email.message_from_bytes(raw)
             try:
                 state["emails"][f"{prefix}{uid}"] = parse_email(msg, retailer, subject, status, date)
                 added += 1
+                del retry[str(uid)]
             except Exception:
-                logging.exception("%s: parse failed for uid %s: %s", name, uid, subject)
-    if uids:
-        sub["last_uid"] = max(uids)
-    imap.logout()
+                if first_failure:
+                    logging.exception("%s: parse failed for uid %s, will retry: %s", name, uid, subject)
+                else:
+                    logging.warning("%s: parse still failing for uid %s: %s", name, uid, subject)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)).isoformat()
+    sub["retry"] = {u: d for u, d in retry.items() if d >= cutoff}
+    sub["last_uid"] = newest
     return added
 
 
@@ -481,6 +507,8 @@ def find_item(items, key):
 
 
 WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+EXPLICIT_DATE = re.compile(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b"
+                           r"|\b\d{1,2}/\d{1,2}\b", re.I)
 
 
 def absolute_eta(eta, sent_iso):
@@ -490,6 +518,8 @@ def absolute_eta(eta, sent_iso):
     sent = datetime.fromisoformat(sent_iso).astimezone()
     low = eta.lower()
     rest = re.sub(r"^(today|tomorrow|\w+day)\b", "", eta, flags=re.I).strip()
+    if EXPLICIT_DATE.search(rest):  # "Wednesday, November 26": the email's own date wins
+        return eta
     day = None
     if low.startswith("today"):
         day = sent
@@ -719,10 +749,21 @@ def redirect_start(numbers, known):
     if not isinstance(numbers, list) or not numbers or not all(isinstance(n, str) for n in numbers):
         raise ValueError("no tracking numbers selected")
     numbers = list(dict.fromkeys(n.strip().upper() for n in numbers))
+    # "Run next batch" resends the saved queue; packages delivered or cancelled since then drop out.
+    queued = {n for n in redirect_json("tracking.json", []) if isinstance(n, str)}
+    stale = [n for n in numbers if n not in known and n in queued]
+    numbers = [n for n in numbers if n not in stale]
     unknown = [n for n in numbers if n not in known]
     if unknown:  # only packages from the user's own orders
         raise ValueError(f"not a UPS/FedEx tracking number from your orders: {', '.join(unknown)}")
-    with open(os.path.join(REDIRECT_DIR, "tracking.json"), "w", encoding="utf-8") as f:
+    if stale:
+        logging.info("redirect: dropped %d queued numbers no longer on active orders", len(stale))
+    queue_path = os.path.join(REDIRECT_DIR, "tracking.json")
+    if not numbers:
+        with open(queue_path, "w", encoding="utf-8") as f:  # clear them so the button stops offering them
+            json.dump([n for n in redirect_json("tracking.json", []) if n not in stale], f, indent=2)
+        raise ValueError("nothing left to redirect: the queued packages were delivered or cancelled")
+    with open(queue_path, "w", encoding="utf-8") as f:
         json.dump(numbers, f, indent=2)
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
     no_window = 0x08000000
@@ -759,14 +800,17 @@ def ships_elsewhere(ship_to, home=None):
     """True if the order's address isn't home (target.json), False if it is, None if unknown.
     Variants of home's number ('2009 N ...', '2009.9 ...', a unit) still count as home."""
     t = home if home is not None else redirect_json("target.json", {})
-    if not ship_to or not t.get("street_number"):
+    if not ship_to or not isinstance(t, dict):
+        return None
+    number, name, city, zip_code = (str(t.get(k) or "") for k in ("street_number", "street_name", "city", "zip"))
+    if not (number and name and city and zip_code):  # incomplete target.json: can't tell
         return None
     if ship_to.endswith("(city only)"):  # Amazon: only the city is known
-        return None if ship_to.lower().startswith(t["city"].lower() + ",") else True
-    street = r"\s+".join(map(re.escape, t["street_name"].split()[:2]))
-    home = re.match(rf"^\D*\b{re.escape(t['street_number'])}(?:\.\d+)?\s+(?:[NSEW]{{1,2}}\.?\s+)?{street}\b", ship_to, re.I)
+        return None if ship_to.lower().startswith(city.lower() + ",") else True
+    street = r"\s+".join(map(re.escape, name.split()[:2]))
+    home = re.match(rf"^\D*\b{re.escape(number)}(?:\.\d+)?\s+(?:[NSEW]{{1,2}}\.?\s+)?{street}\b", ship_to, re.I)
     zip_ = re.search(r"\b(\d{5})(?:-\d{4})?$", ship_to)
-    return not (home and (not zip_ or zip_[1] == t["zip"]))
+    return not (home and (not zip_ or zip_[1] == zip_code))
 
 
 def away_packages(orders):
@@ -783,20 +827,19 @@ def away_packages(orders):
 
 def notify_away(state, orders, show=True):
     """One toast per newly shipped package going to an address other than home."""
-    current = {f"{o['key']}|{n or ''}" for o, n in away_packages(orders)}
+    away = away_packages(orders)
     seen = state.get("away_seen")
-    state["away_seen"] = sorted(current | set(seen or []))
-    if seen is None or not show:
-        return  # first run / dashboard refresh: the dashboard banner shows these
-    new = [(o, n) for o, n in away_packages(orders) if f"{o['key']}|{n or ''}" not in seen]
-    if not new:
-        return
-    lines = [f"{o['retailer']} …{(o['order'] or '')[-4:]} → {o['ship_to'].split(',')[0]}"
-             + (f" ({carrier_for(n)[0]})" if n else "") for o, n in new[:4]]
-    if len(new) > 4:
-        lines.append(f"+{len(new) - 4} more")
-    toast(f"{len(new)} package{'s' if len(new) > 1 else ''} shipped to another address",
-          "\n".join(lines) + "\nOpen the tracker to redirect.")
+    # First run / dashboard refresh (seen is None / show=False): the dashboard banner shows these.
+    new = [(o, n) for o, n in away if f"{o['key']}|{n or ''}" not in seen] if seen is not None and show else []
+    if new:
+        lines = [f"{o['retailer']} …{(o['order'] or '')[-4:]} → {o['ship_to'].split(',')[0]}"
+                 + (f" ({carrier_for(n)[0]})" if n else "") for o, n in new[:4]]
+        if len(new) > 4:
+            lines.append(f"+{len(new) - 4} more")
+        toast(f"{len(new)} package{'s' if len(new) > 1 else ''} shipped to another address",
+              "\n".join(lines) + "\nOpen the tracker to redirect.")
+    # Marked as seen only after the toast went out: a failed toast is tried again next run.
+    state["away_seen"] = sorted({f"{o['key']}|{n or ''}" for o, n in away} | set(seen or []))
 
 
 def redirectable_numbers(orders):
@@ -983,6 +1026,8 @@ def serve():
                 return self.order_meta()
             if self.path != "/refresh":
                 return self.send(404, b"not found", "text/plain")
+            if not self.json_post_ok():
+                return
             with lock:
                 try:
                     orders, error = refresh(notify=False)
@@ -992,13 +1037,20 @@ def serve():
                     body = {"ok": False, "error": str(exc)}
             self.send(200, json.dumps(body).encode(), "application/json")
 
-        def redirect_post(self):
-            # These start real carrier changes: JSON only (other sites can't send it without a
-            # CORS preflight this server never answers) and, when sent, our own Origin.
+        def json_post_ok(self):
+            # Every POST changes something (redirects start real carrier changes): JSON only (other
+            # sites can't send it without a CORS preflight this server never answers) and, when
+            # sent, our own Origin.
             origin = self.headers.get("Origin")
-            if (self.headers.get("Content-Type", "").split(";")[0] != "application/json"
-                    or (origin and origin.split("//")[-1] not in allowed_hosts)):
-                return self.send(403, b"forbidden", "text/plain")
+            if (self.headers.get("Content-Type", "").split(";")[0] == "application/json"
+                    and (not origin or origin.split("//")[-1] in allowed_hosts)):
+                return True
+            self.send(403, b"forbidden", "text/plain")
+            return False
+
+        def redirect_post(self):
+            if not self.json_post_ok():
+                return
             try:
                 req = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
                 with redirect_lock:
@@ -1018,10 +1070,8 @@ def serve():
 
         def order_meta(self):
             """Pin / note / mark-received for one order (data/order_meta.json)."""
-            origin = self.headers.get("Origin")
-            if (self.headers.get("Content-Type", "").split(";")[0] != "application/json"
-                    or (origin and origin.split("//")[-1] not in allowed_hosts)):
-                return self.send(403, b"forbidden", "text/plain")
+            if not self.json_post_ok():
+                return
             try:
                 req = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
                 known = {o["key"] for o in build_orders(load_state()["emails"].values())}
@@ -1034,10 +1084,8 @@ def serve():
 
         def tcg_link(self):
             """Manual TCGplayer match for an item, then rebuild the dashboard from cached emails."""
-            origin = self.headers.get("Origin")
-            if (self.headers.get("Content-Type", "").split(";")[0] != "application/json"
-                    or (origin and origin.split("//")[-1] not in allowed_hosts)):
-                return self.send(403, b"forbidden", "text/plain")
+            if not self.json_post_ok():
+                return
             try:
                 req = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
                 names = req.get("names") or []
@@ -1080,19 +1128,19 @@ def toast(title, body):
 def notify_changes(state, orders):
     previous = state.get("statuses")
     current = {o["key"]: o["status"] for o in orders}
+    # First run (previous is None): nothing to compare against.
+    changes = [o for o in orders if o["status"] in NOTIFY_STATUSES and previous.get(o["key"]) != o["status"]
+               ] if previous is not None else []
+    if changes:
+        lines = []
+        for o in changes[:4]:
+            first = o["items"][0]["name"][:40] if o["items"] else ""
+            lines.append(f"{o['status']}: {o['retailer']} …{(o['order'] or '')[-4:]} {first}")
+        if len(changes) > 4:
+            lines.append(f"+{len(changes) - 4} more")
+        toast(f"{len(changes)} order update{'s' if len(changes) > 1 else ''}", "\n".join(lines))
+    # Marked as seen only after the toast went out: a failed toast is tried again next run.
     state["statuses"] = current
-    if previous is None:
-        return  # first run: nothing to compare against
-    changes = [o for o in orders if o["status"] in NOTIFY_STATUSES and previous.get(o["key"]) != o["status"]]
-    if not changes:
-        return
-    lines = []
-    for o in changes[:4]:
-        first = o["items"][0]["name"][:40] if o["items"] else ""
-        lines.append(f"{o['status']}: {o['retailer']} …{(o['order'] or '')[-4:]} {first}")
-    if len(changes) > 4:
-        lines.append(f"+{len(changes) - 4} more")
-    toast(f"{len(changes)} order update{'s' if len(changes) > 1 else ''}", "\n".join(lines))
 
 
 def print_summary(orders, retailer=""):
@@ -1104,7 +1152,7 @@ def print_summary(orders, retailer=""):
     active.sort(key=lambda o: (rank.index(o["status"]), o["updated"]))
     recent = datetime.now(timezone.utc) - timedelta(days=7)
     delivered = [o for o in orders if o["status"] == "Delivered" and o["updated"] >= recent.isoformat()
-                 and (not retailer or retailer.lower() in o["retailer"].lower())]
+                 and (not retailer or retailer.lower().replace("é", "e") in o["retailer"].lower().replace("é", "e"))]
     redirects = redirect_snapshot().get("results", {})
     print(f"\nACTIVE ({len(active)})  |  delivered last 7d: {len(delivered)}")
     for o in active:
@@ -1164,15 +1212,17 @@ def refresh(rescan=False, days=DEFAULT_DAYS, offline=False, quiet=False, notify=
     cutoff = (datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)).isoformat()
     state["emails"] = {u: e for u, e in state["emails"].items() if e["date"] >= cutoff}
     orders = build_orders(state["emails"].values())
-    if not error and not notify:
+    # A failed account doesn't hold back notifications: its cached emails are still in `orders`,
+    # and the accounts that did fetch may have real changes.
+    if not notify:
         state["statuses"] = {o["key"]: o["status"] for o in orders}
         notify_away(state, orders, show=False)
-    elif not quiet and not error:
-        try:
-            notify_changes(state, orders)
-            notify_away(state, orders)
-        except Exception:
-            logging.exception("notify failed")
+    elif not quiet:
+        for send in (notify_changes, notify_away):
+            try:
+                send(state, orders)
+            except Exception:
+                logging.exception("%s failed", send.__name__)
     else:
         state.setdefault("statuses", {o["key"]: o["status"] for o in orders})
     save_state(state)
