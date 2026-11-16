@@ -1,0 +1,1173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order Tracker</title>
+<script>try { const t = localStorage.getItem("ot-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<style>
+:root {
+  --bg: #f3f4f7; --surface: #ffffff; --surface-2: #eef0f4; --border: #e1e4ea; --border-2: #cfd3dc;
+  --text: #14161b; --muted: #626978; --accent: #4338ca; --accent-ink: #ffffff;
+  --s-confirmed: #626978; --s-preorder: #7c4fd0; --s-shipped: #2563d9; --s-ofd: #c2620a;
+  --s-delivered: #17834a; --s-cancelled: #c23a2c; --s-delayed: #a67708;
+  --shadow: 0 1px 2px rgba(16,20,30,.05), 0 1px 1px rgba(16,20,30,.03);
+  --shadow-lg: 0 10px 34px rgba(16,20,30,.16);
+  --radius: 12px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1014; --surface: #161920; --surface-2: #1e222b; --border: #282d38; --border-2: #3a4050;
+    --text: #e9ebf1; --muted: #979eae; --accent: #9499ff; --accent-ink: #10121a;
+    --s-confirmed: #979eae; --s-preorder: #b594f5; --s-shipped: #79a4ff; --s-ofd: #f2a245;
+    --s-delivered: #4fc784; --s-cancelled: #f07265; --s-delayed: #e2bb4e;
+    --shadow: 0 1px 2px rgba(0,0,0,.35); --shadow-lg: 0 12px 36px rgba(0,0,0,.55);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1014; --surface: #161920; --surface-2: #1e222b; --border: #282d38; --border-2: #3a4050;
+  --text: #e9ebf1; --muted: #979eae; --accent: #9499ff; --accent-ink: #10121a;
+  --s-confirmed: #979eae; --s-preorder: #b594f5; --s-shipped: #79a4ff; --s-ofd: #f2a245;
+  --s-delivered: #4fc784; --s-cancelled: #f07265; --s-delayed: #e2bb4e;
+  --shadow: 0 1px 2px rgba(0,0,0,.35); --shadow-lg: 0 12px 36px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; overflow-x: clip; background: var(--bg); color: var(--text);
+  font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- top bar */
+.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--border); }
+.top-in { max-width: 1280px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; flex: none; }
+.logo { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
+.logo svg { width: 19px; height: 19px; }
+h1 { font-size: 16px; margin: 0; letter-spacing: -0.01em; line-height: 1.2; }
+.meta { color: var(--muted); font-size: 12px; }
+.meta.old { color: var(--s-delayed); }
+.search { flex: 1 1 260px; min-width: 0; position: relative; }
+.search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--muted); pointer-events: none; }
+.search input { width: 100%; padding: 8px 34px 8px 33px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.search kbd { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); }
+kbd { font: 600 11px/1 ui-monospace, Consolas, monospace; color: var(--muted); border: 1px solid var(--border-2); border-radius: 5px; padding: 3px 5px; background: var(--surface-2); }
+.head-r { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600;
+  padding: 7px 12px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; box-shadow: var(--shadow); }
+.btn:hover { border-color: var(--border-2); background: color-mix(in srgb, var(--surface) 80%, var(--surface-2)); }
+.btn:disabled { cursor: default; color: var(--muted); }
+.btn svg { width: 14px; height: 14px; flex: none; }
+.btn.busy svg { animation: spin 1s linear infinite; }
+.btn.icon { padding: 7px 9px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn.primary:disabled { opacity: .55; color: var(--accent-ink); }
+.btn.on { border-color: var(--accent); color: var(--accent); }
+.btn.sm { padding: 4px 9px; font-size: 12px; border-radius: 7px; box-shadow: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 18px 20px 56px; }
+.error { background: color-mix(in srgb, var(--s-cancelled) 12%, var(--surface)); border: 1px solid var(--s-cancelled);
+  padding: 10px 14px; border-radius: var(--radius); margin-bottom: 14px; }
+
+/* ---------- KPI tiles */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px 11px; cursor: pointer;
+  text-align: left; box-shadow: var(--shadow); position: relative; overflow: hidden; transition: border-color .12s, transform .12s; }
+.kpi::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--c); opacity: .85; }
+.kpi:hover { border-color: var(--border-2); transform: translateY(-1px); }
+.kpi.on { border-color: var(--c); box-shadow: 0 0 0 1px var(--c); }
+.kpi .l { color: var(--muted); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.kpi .n { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.25; margin-top: 2px; }
+.kpi .d { color: var(--muted); font-size: 12px; min-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi .d.up { color: var(--s-delivered); font-weight: 600; } .kpi .d.dn { color: var(--s-cancelled); font-weight: 600; }
+.kpi .d.warn { color: var(--s-delayed); font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* ---------- tabs + filters */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 0 0 12px; overflow-x: auto; scrollbar-width: none; }
+.tabs button { border: 0; background: none; color: var(--muted); font-weight: 600; padding: 9px 12px; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; border-radius: 8px 8px 0 0; display: inline-flex; gap: 7px; align-items: center; }
+.tabs button:hover { color: var(--text); background: var(--surface-2); }
+.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.cnt { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tabs button.on .cnt { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.cnt.warn { background: color-mix(in srgb, var(--s-cancelled) 15%, transparent); color: var(--s-cancelled); }
+.bar { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-bottom: 10px; }
+.bar .grow { flex: 1; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { border: 1px solid var(--border); background: var(--surface); color: var(--muted); padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  font-size: 13px; font-weight: 550; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chip:hover { border-color: var(--border-2); color: var(--text); }
+.chip.on { background: var(--text); border-color: var(--text); color: var(--bg); }
+.chip .c { font-size: 11.5px; opacity: .65; font-variant-numeric: tabular-nums; }
+.chip.q { border-style: dashed; }
+.chip.q.on { background: color-mix(in srgb, var(--c, var(--accent)) 16%, var(--surface)); border: 1px solid var(--c, var(--accent)); color: var(--text); }
+.lbl { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; flex: none; }
+select.sel { border: 1px solid var(--border); background: var(--surface); border-radius: 9px; padding: 6px 8px; font-size: 13px; cursor: pointer; }
+body:not([data-tab="orders"]) .only-orders { display: none !important; }
+body:not([data-tab="orders"]):not([data-tab="items"]) .only-lists { display: none !important; }
+body[data-tab="redirects"] .no-redirects { display: none !important; }
+
+/* ---------- order cards */
+.list { display: flex; flex-direction: column; gap: 8px; }
+.order { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); transition: border-color .12s; }
+.order:hover { border-color: var(--border-2); }
+.order.open { border-color: var(--border-2); box-shadow: var(--shadow-lg); }
+.order.pinned { border-left: 3px solid var(--accent); }
+.row { display: grid; grid-template-columns: 178px minmax(0, 1fr) 176px 214px 104px; gap: 16px; padding: 13px 14px; align-items: start; cursor: pointer; }
+.c-id { display: flex; gap: 10px; min-width: 0; }
+.badge { width: 34px; height: 34px; border-radius: 10px; flex: none; display: grid; place-items: center; font-weight: 800; font-size: 15px;
+  background: var(--rc, var(--accent)); color: var(--rt, #fff); }
+.retailer { font-weight: 650; display: flex; align-items: center; gap: 6px; }
+.newdot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+.ordno { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; word-break: break-all; }
+.ordno a { color: inherit; text-decoration: none; } .ordno a:hover { color: var(--accent); text-decoration: underline; }
+.items { margin: 0; padding: 0; list-style: none; }
+.items li { display: flex; gap: 10px; align-items: center; }
+.items li + li { margin-top: 7px; }
+.items .nm { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.order.open .items .nm { display: block; }
+.items .q { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 13px; }
+.items li.x .nm { text-decoration: line-through; color: var(--muted); }
+.items li.x .thumb { opacity: .45; filter: grayscale(1); }
+.more { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.thumb { width: 44px; height: 44px; flex: none; border-radius: 9px; background: #fff; border: 1px solid var(--border);
+  object-fit: contain; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+.thumb.ph { background: var(--surface-2); color: var(--muted); }
+.thumb.ph svg { width: 20px; height: 20px; }
+.note-line { margin-top: 8px; font-size: 12.5px; padding: 5px 9px; border-radius: 8px; background: color-mix(in srgb, var(--s-delayed) 12%, var(--surface)); display: inline-flex; gap: 6px; max-width: 100%; }
+.note-line span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; padding: 3px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); white-space: nowrap; }
+.steps { display: flex; gap: 3px; margin-top: 8px; max-width: 150px; }
+.steps i { flex: 1; height: 4px; border-radius: 2px; background: var(--surface-2); }
+.steps i.f { background: var(--c); }
+.eta { margin-top: 6px; font-size: 12.5px; font-weight: 600; }
+.eta.late { color: var(--s-cancelled); } .eta.today { color: var(--s-ofd); }
+.eta small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+.away-tag { color: var(--s-ofd); }
+.tk { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; font-size: 12px; }
+.tk + .tk { margin-top: 5px; }
+.tk a { color: var(--accent); text-decoration: none; font-variant-numeric: tabular-nums; word-break: break-all; }
+.tk a:hover { text-decoration: underline; }
+.tk input { margin: 0; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+.ic { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 3px; border-radius: 6px; display: inline-grid; place-items: center; }
+.ic:hover { background: var(--surface-2); color: var(--text); }
+.ic svg { width: 14px; height: 14px; }
+.ic.star.on { color: var(--accent); } .ic.star.on svg { fill: currentColor; }
+.rd { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+  background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); }
+.c-end { text-align: right; }
+.money { font-variant-numeric: tabular-nums; font-weight: 650; font-size: 15px; }
+.rowacts { display: flex; justify-content: flex-end; gap: 2px; margin-top: 6px; }
+.chev { transition: transform .15s; } .order.open .chev { transform: rotate(180deg); }
+.detail { border-top: 1px solid var(--border); padding: 14px 14px 16px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px 28px; font-size: 13px;
+  background: color-mix(in srgb, var(--surface) 60%, var(--surface-2)); border-radius: 0 0 var(--radius) var(--radius); }
+.detail h3 { margin: 0 0 8px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.tl { margin: 0; padding: 0; list-style: none; }
+.tl li { display: grid; grid-template-columns: 14px 1fr; gap: 10px; padding-bottom: 10px; position: relative; }
+.tl li::before { content: ""; position: absolute; left: 4.5px; top: 12px; bottom: -2px; width: 1px; background: var(--border-2); }
+.tl li:last-child::before { display: none; }
+.tl .tdot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); margin-top: 4px; z-index: 1; }
+.tl .sub { margin: 0; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0 0 14px; }
+.facts dt { color: var(--muted); } .facts dd { margin: 0; }
+.detail textarea { width: 100%; min-height: 58px; resize: vertical; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 8px 10px; }
+.detail textarea:focus { outline: none; border-color: var(--accent); }
+.dacts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+/* ---------- banners, run panel, selection bar */
+.away { background: color-mix(in srgb, var(--s-ofd) 10%, var(--surface)); border: 1px solid var(--s-ofd); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+.away .top-l { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.away ul { margin: 8px 0 0; padding: 0; list-style: none; }
+.away li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: center; padding: 3px 0; }
+.away li .addr { font-weight: 600; }
+.runbox { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.runbox.live { border-color: var(--accent); }
+.runbox .top-l { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.runbox .ttl { font-weight: 650; display: flex; align-items: center; gap: 8px; }
+.runbox .ttl .spin { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+.waitbox { margin-top: 10px; padding: 10px 12px; border-radius: 9px; background: color-mix(in srgb, var(--s-ofd) 12%, var(--surface)); border: 1px solid var(--s-ofd); }
+.waitbox form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+.waitbox input { font: 600 18px/1 ui-monospace, Consolas, monospace; letter-spacing: .3em; width: 9.5em; padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.runbox ul.res { margin: 8px 0 0; padding: 0; list-style: none; }
+.runbox ul.res li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; padding: 3px 0; font-variant-numeric: tabular-nums; }
+.runbox details { margin-top: 8px; }
+.runbox summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+.runbox pre { margin: 6px 0 0; max-height: 240px; overflow: auto; font: 12px/1.45 ui-monospace, Consolas, monospace; background: var(--surface-2);
+  padding: 8px 10px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; }
+.selbar { position: sticky; bottom: 12px; margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between;
+  background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); padding: 10px 14px; box-shadow: var(--shadow-lg); z-index: 10; }
+.selbar .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+dialog { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); padding: 18px 20px; width: min(520px, calc(100vw - 32px)); box-shadow: var(--shadow-lg); }
+dialog::backdrop { background: rgba(8,10,16,.45); backdrop-filter: blur(2px); }
+dialog h2 { margin: 0 0 10px; font-size: 17px; }
+dialog .dest { background: var(--surface-2); border-radius: 8px; padding: 8px 12px; margin: 8px 0 12px; font-weight: 600; }
+dialog ul { margin: 6px 0 12px; padding-left: 18px; }
+dialog ul.nums { max-height: 180px; overflow: auto; font-variant-numeric: tabular-nums; }
+dialog .warn { color: var(--s-delayed); }
+dialog .acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* ---------- tables */
+.tablewrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); }
+table.agg { width: 100%; border-collapse: collapse; }
+table.agg th, table.agg td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.agg tbody tr:last-child td { border-bottom: 0; }
+table.agg tbody tr:hover td { background: color-mix(in srgb, var(--surface) 55%, var(--surface-2)); }
+table.agg th { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; background: var(--surface-2); white-space: nowrap; position: sticky; top: 0; }
+table.agg td.num, table.agg th.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.agg tfoot td { font-weight: 650; background: var(--surface-2); border-top: 1px solid var(--border); border-bottom: 0; }
+table.agg .prod { display: flex; align-items: center; gap: 10px; min-width: 220px; }
+table.agg td .sub { margin: 0; }
+.empty { text-align: center; color: var(--muted); padding: 48px 0; }
+.empty b { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
+
+/* ---------- market */
+.mk { margin-top: 2px; display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: center; font-size: 12px; white-space: normal; }
+.mk .sub { margin: 0; }
+a.mkt { color: var(--accent); text-decoration: none; font-weight: 600; font-variant-numeric: tabular-nums; }
+a.mkt:hover { text-decoration: underline; }
+.chg { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+.chg.up { color: var(--s-delivered); } .chg.dn { color: var(--s-cancelled); }
+.mhead { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.spark { display: block; overflow: visible; }
+.spark polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.spark circle { fill: transparent; } .spark circle:hover, .spark circle.last { fill: var(--accent); }
+
+/* ---------- arriving */
+.strip { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px; margin-bottom: 18px; }
+.day { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 4px 6px; text-align: center; cursor: default; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.day.has { cursor: pointer; } .day.has:hover { border-color: var(--accent); }
+.day.today { border-color: var(--accent); }
+.day .wd { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.day .dn { font-weight: 650; font-variant-numeric: tabular-nums; }
+.day .col { height: 40px; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.day .col i { width: 14px; border-radius: 4px 4px 0 0; background: var(--accent); min-height: 3px; }
+.day .ct { font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; min-height: 16px; }
+.day:not(.has) .ct { color: transparent; }
+.grp { display: flex; align-items: baseline; gap: 10px; margin: 20px 0 8px; scroll-margin-top: 80px; }
+.grp:first-child { margin-top: 0; }
+.grp h2 { font-size: 15px; margin: 0; }
+.grp.late h2 { color: var(--s-cancelled); }
+
+/* ---------- insights */
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+.card h2 { font-size: 14px; margin: 0 0 2px; }
+.card.wide { grid-column: 1 / -1; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); }
+.stat .l { color: var(--muted); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.stat .n { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.weeks { display: flex; align-items: flex-end; gap: 2px; height: 150px; margin-top: 14px; border-bottom: 1px solid var(--border-2); }
+.weeks .w { flex: 1; max-width: 44px; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
+.weeks .w i { width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; }
+.weeks .w:hover i { background: color-mix(in srgb, var(--accent) 75%, var(--text)); }
+.wlab { display: flex; gap: 2px; margin-top: 4px; }
+.wlab span { flex: 1; max-width: 44px; min-width: 0; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: visible; }
+.hb { display: grid; grid-template-columns: minmax(90px, 130px) 1fr auto; gap: 10px; align-items: center; padding: 6px 0; }
+.hb .track { height: 12px; display: flex; }
+.hb .track i { background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
+.hb .v { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.toplist { margin: 10px 0 0; padding: 0; list-style: none; }
+.toplist li { display: flex; gap: 10px; align-items: center; padding: 5px 0; }
+.toplist .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#tip { position: fixed; z-index: 60; pointer-events: none; background: var(--text); color: var(--bg); font-size: 12px; padding: 5px 9px; border-radius: 7px; max-width: 280px; box-shadow: var(--shadow-lg); }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 70; background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 10px;
+  font-weight: 600; font-size: 13px; box-shadow: var(--shadow-lg); }
+#toast.bad { background: var(--s-cancelled); color: #fff; }
+footer { margin-top: 28px; color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
+
+@media (max-width: 980px) {
+  .row { grid-template-columns: minmax(0, 1fr) auto; }
+  .c-id { grid-column: 1; } .c-end { grid-column: 2; grid-row: 1; }
+  .c-items, .c-status, .c-track { grid-column: 1 / -1; }
+  .steps { max-width: 220px; }
+  .detail { grid-template-columns: 1fr; }
+  .strip { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .cards { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .wrap, .top-in { padding-left: 14px; padding-right: 14px; }
+  .btn .t { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation-duration: 0s !important; } }
+</style>
+</head>
+<body data-tab="orders">
+<div class="top"><div class="top-in">
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></div>
+    <div><h1>Order Tracker</h1><div class="meta" id="meta"></div></div>
+  </div>
+  <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input type="search" id="q" placeholder="Search product, order #, tracking, name, note…" autocomplete="off" aria-label="Search orders"><kbd>/</kbd></label>
+  <div class="head-r">
+    <button class="btn icon" id="theme" title="Theme: auto / light / dark (T)" aria-label="Change theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+    <button class="btn" id="export" title="Download the orders in this view as a spreadsheet (CSV)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg><span class="t">Export</span></button>
+    <button class="btn" id="rd-toggle" hidden title="Pick UPS / FedEx packages to send to your address"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h12"/><path d="m12 6 6 6-6 6"/><path d="M20 4v16"/></svg><span class="t">Redirect</span></button>
+    <button class="btn primary" id="refresh" hidden title="Check the inbox for new order emails (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Refresh</span></button>
+  </div>
+</div></div>
+
+<div class="wrap">
+  <div id="error"></div>
+  <div class="away" id="away" hidden></div>
+  <div class="runbox" id="runbox" hidden>
+    <div class="top-l"><div class="ttl" id="run-ttl"></div><button class="btn sm" id="run-dismiss" hidden>Dismiss</button></div>
+    <div class="sub" id="run-sub"></div>
+    <div class="waitbox" id="run-wait" hidden>
+      <div><b>UPS texted a passcode</b> for <span id="run-wait-num"></span> to the phone on the package. Enter it here, or type it in the redirect Chrome window. Don't press Send to Mobile again.</div>
+      <form id="run-code-form"><input id="run-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="6-digit passcode"><button class="btn primary" type="submit">Send code</button><span class="sub" id="run-code-msg"></span></form>
+    </div>
+    <div id="run-body"></div>
+    <details id="run-log-wrap"><summary>Script output</summary><pre id="run-log"></pre></details>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="orders">Orders <span class="cnt" id="cnt-orders"></span></button>
+    <button data-tab="arriving">Arriving <span class="cnt" id="cnt-arriving"></span></button>
+    <button data-tab="items">Items on the way</button>
+    <button data-tab="market" id="tab-mk" hidden>Card market</button>
+    <button data-tab="insights">Spending</button>
+    <button data-tab="redirects" id="tab-rd" hidden>Redirects</button>
+  </nav>
+
+  <div class="bar no-redirects">
+    <div class="chips" id="retailers"></div>
+    <span class="grow"></span>
+    <label class="only-orders" style="display:inline-flex;gap:8px;align-items:center"><span class="lbl">Sort</span>
+      <select class="sel" id="sort">
+        <option value="smart">Needs attention first</option>
+        <option value="updated">Recently updated</option>
+        <option value="eta">Arriving soonest</option>
+        <option value="placed">Newest order</option>
+        <option value="total">Highest total</option>
+      </select></label>
+  </div>
+  <div class="bar only-lists"><div class="chips" id="statuses"></div></div>
+  <div class="bar only-orders" id="quick-bar"><span class="lbl">Quick filters</span><div class="chips" id="quick"></div></div>
+
+  <div id="view"></div>
+
+  <div class="selbar" id="selbar" hidden>
+    <div><b id="sel-n">0 selected</b> <span class="sub" id="sel-hint"></span></div>
+    <div class="acts"><button class="btn" id="sel-all">Select all eligible</button><button class="btn" id="sel-cancel">Cancel</button><button class="btn primary" id="sel-go" disabled>Redirect…</button></div>
+  </div>
+
+  <footer>
+    <span><kbd>/</kbd> search</span><span><kbd>R</kbd> refresh</span><span><kbd>T</kbd> theme</span><span><kbd>1</kbd>–<kbd>6</kbd> switch tab</span><span><kbd>Esc</kbd> clear search</span>
+    <span style="flex:1"></span><span id="foot"></span>
+  </footer>
+</div>
+
+<dialog id="rd-dialog">
+  <h2 id="dlg-title"></h2>
+  <div>Packages will be changed to deliver to:</div>
+  <div class="dest" id="dlg-dest"></div>
+  <ul class="nums" id="dlg-list"></ul>
+  <ul id="dlg-notes"></ul>
+  <div class="error" id="dlg-err" hidden></div>
+  <div class="acts"><button class="btn" id="dlg-cancel">Cancel</button><button class="btn primary" id="dlg-go">Start redirect</button></div>
+</dialog>
+<div id="tip" hidden></div>
+<div id="toast" hidden role="status"></div>
+
+<template id="ph"><span class="thumb ph" title="No product photo in the email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></span></template>
+<script id="data" type="application/json">/*__DATA__*/null</script>
+<script>
+const DATA = JSON.parse(document.getElementById("data").textContent) || {orders: []};
+const STATUS_COLOR = {
+  "Order Confirmed": "--s-confirmed", "Pre-order": "--s-preorder", "Shipped": "--s-shipped", "Delayed": "--s-delayed",
+  "Out for Delivery": "--s-ofd", "Delivered": "--s-delivered", "Cancelled": "--s-cancelled",
+};
+const STATUS_ORDER = ["Out for Delivery", "Delayed", "Shipped", "Pre-order", "Order Confirmed", "Delivered", "Cancelled"];
+const STAGE = {"Order Confirmed": 1, "Pre-order": 1, "Shipped": 2, "Out for Delivery": 3, "Delivered": 4, "Cancelled": 0};
+const RETAILER_LOOK = {"Target": ["#cc0000", "#fff"], "Amazon": ["#e47911", "#fff"], "Mattel": ["#1565c0", "#fff"], "Pokémon Center": ["#f2b807", "#1b1b1b"], "Topps": ["#7b3fb5", "#fff"]};
+const ACTIVE = s => s !== "Delivered" && s !== "Cancelled";
+const LIVE = location.protocol.startsWith("http");  // served by tracker.py --serve (can run actions)
+let RD = DATA.redirect || {available: false};
+let META = DATA.meta || {};
+const MK = DATA.market || {products: {}, unmatched: []};
+const HAS_MK = Object.keys(MK.products || {}).length > 0 || (MK.unmatched || []).length > 0;
+const state = { retailer: "All", status: "Active", q: "", tab: "orders", sort: "smart", quick: null, picking: false, picked: new Set(),
+  awayOnly: false, mscope: "way", open: new Set(), limit: 50 };
+try { Object.assign(state, JSON.parse(localStorage.getItem("ot-filters") || "{}")); state.q = ""; } catch (e) {}
+if (/^#(orders|arriving|items|market|insights|redirects)$/.test(location.hash)) state.tab = location.hash.slice(1);  // e.g. /#arriving
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => n == null ? "" : "$" + n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const money0 = n => "$" + Math.round(n).toLocaleString();
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const fmtDate = iso => { const d = iso instanceof Date ? iso : new Date(iso); return isNaN(d) ? esc(iso) : d.toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
+const fmtDay = d => d.toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"});
+const fmtDT = iso => { const d = new Date(iso); return isNaN(d) ? esc(iso) : d.toLocaleString(undefined, {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}); };
+const sc = s => `var(${STATUS_COLOR[s] || "--muted"})`;
+const pill = (s, delayed) => `<span class="pill" style="--c:${sc(s)}"><span class="dot" style="background:${sc(s)}"></span>${esc(s)}${delayed && s !== "Delayed" && ACTIVE(s) ? " · delayed" : ""}</span>`;
+const daysAgo = iso => (Date.now() - new Date(iso)) / 864e5;
+const ago = iso => { const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 6e4)); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
+const thumb = i => i.img
+  ? `<img class="thumb" src="${esc(i.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" title="${i.img_borrowed ? "Photo from the same product in another order" : ""}" onerror="this.outerHTML=document.getElementById('ph').innerHTML">`
+  : document.getElementById("ph").innerHTML;
+const ICON = {
+  copy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>`,
+  star: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.9 6.6 19.8l1.1-6.1L3.2 9.4l6.1-.8z"/></svg>`,
+  chev: `<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`,
+};
+
+function save() { try { localStorage.setItem("ot-filters", JSON.stringify({retailer: state.retailer, status: state.status, tab: state.tab, sort: state.sort})); } catch (e) {} }
+
+// ---------------------------------------------------------------- your own marks (pin / note / received)
+// Stored by the local server in data/order_meta.json. "Received" shows an order as Delivered even
+// when the retailer never sends a delivery email.
+function applyMeta() {
+  for (const o of DATA.orders) {
+    o.raw = o.raw || o.status;
+    o.m = META[o.key] || {};
+    o.status = o.m.received && ACTIVE(o.raw) ? "Delivered" : o.raw;
+    o.manual = o.status !== o.raw;
+  }
+}
+applyMeta();
+async function setMeta(key, patch, msg) {
+  try {
+    const r = await (await fetch("/order/meta", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({key, patch})})).json();
+    if (!r.ok) throw new Error(r.error || "couldn't save");
+    META = r.meta; applyMeta(); render();
+    if (msg) toast(msg);
+  } catch (e) { toast(e.message, true); }
+}
+
+// "New" = an email arrived since your previous visit (kept for as long as this tab stays open).
+let BASE = "";
+try {
+  BASE = sessionStorage.getItem("ot-base");
+  if (BASE == null) { BASE = localStorage.getItem("ot-last-visit") || ""; sessionStorage.setItem("ot-base", BASE); }
+  localStorage.setItem("ot-last-visit", new Date().toISOString());
+} catch (e) { BASE = ""; }
+const isNew = o => !!BASE && new Date(o.updated) > new Date(BASE);
+
+// ---------------------------------------------------------------- delivery estimates
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const today0 = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const dayDiff = d => Math.round((d - today0()) / 864e5);
+function parseEta(o) {  // "Wed, Nov 18" / "Mon, Dec 7 – Thu, Dec 10" / "November 15 - November 16" -> {start, end}
+  if (o._eta !== undefined) return o._eta;
+  const out = [], ref = new Date(o.updated);
+  let lastM = null;
+  for (const m of String(o.eta || "").matchAll(/(?:([A-Za-z]{3,9})\.?\s+)?(\d{1,2})(?![\d:]|\s*[ap]\.?m)/g)) {
+    let mi = m[1] ? MONTHS.indexOf(m[1].slice(0, 3).toLowerCase()) : -1;
+    if (mi < 0) { if (m[1] || lastM == null) continue; mi = lastM; }
+    lastM = mi;
+    const d = new Date(ref.getFullYear(), mi, +m[2]);
+    if (d - ref < -120 * 864e5) d.setFullYear(d.getFullYear() + 1);
+    else if (d - ref > 240 * 864e5) d.setFullYear(d.getFullYear() - 1);
+    out.push(d);
+  }
+  return o._eta = out.length ? {start: out[0], end: out[out.length - 1]} : null;
+}
+function etaInfo(o) {  // {label, cls, day (Date the package is expected from), late}
+  if (!ACTIVE(o.status)) return null;
+  if (o.status === "Out for Delivery") return {label: "Arriving today", cls: "today", day: today0()};
+  const e = parseEta(o);
+  if (!e) return null;
+  const ds = dayDiff(e.start), de = dayDiff(e.end);
+  if (de < 0) return {label: `${plural(-de, "day")} late`, cls: "late", late: -de, day: e.end};
+  if (ds <= 0) return {label: de === 0 ? "Expected today" : "Any day now", cls: "today", day: today0()};
+  return {label: ds === 1 ? "Tomorrow" : `In ${ds} days`, cls: "", day: e.start};
+}
+const isLate = o => !!etaInfo(o)?.late;
+const isQuiet = o => ACTIVE(o.status) && daysAgo(o.updated) > 10;
+
+// ---------------------------------------------------------------- filtering
+const SHIPPED = s => s === "Shipped" || s === "Out for Delivery" || s === "Delayed";
+const awayList = () => DATA.orders.filter(o => o.away && SHIPPED(o.status) && (!o.tracking.length || o.tracking.some(t => !rdFinal(t.number))));
+const QUICK = {
+  late: ["Late", isLate, "--s-cancelled"], quiet: ["Quiet 10+ days", isQuiet, "--s-delayed"],
+  fresh: ["New since last visit", isNew, "--accent"], pinned: ["Pinned", o => !!o.m.pinned, "--accent"], noted: ["With notes", o => !!o.m.note, "--s-delayed"],
+};
+function matches(o, anyStatus) {
+  if (state.awayOnly && !awayList().includes(o)) return false;
+  if (state.retailer !== "All" && o.retailer !== state.retailer) return false;
+  if (!anyStatus) {
+    if (state.quick && QUICK[state.quick]) { if (!QUICK[state.quick][1](o)) return false; }
+    else if (state.status === "Active" ? !ACTIVE(o.status) : state.status !== "All" && o.status !== state.status) return false;
+  }
+  if (state.q) {
+    const hay = (o._hay = o._hay || [o.retailer, o.order, o.name, o.raw, o.ship_to, ...o.items.map(i => i.name), ...o.tracking.map(t => t.number)].join(" ").toLowerCase())
+      + " " + o.status.toLowerCase() + " " + (o.m.note || "").toLowerCase();
+    if (!state.q.toLowerCase().split(/\s+/).every(w => hay.includes(w))) return false;
+  }
+  return true;
+}
+const SORTS = {
+  smart: (a, b) => (ACTIVE(b.status) - ACTIVE(a.status)) || (isLate(b) - isLate(a)) || (STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)) || (b.updated > a.updated ? 1 : -1),
+  updated: (a, b) => (b.updated > a.updated ? 1 : -1),
+  eta: (a, b) => (etaInfo(a)?.day ?? Infinity) - (etaInfo(b)?.day ?? Infinity) || (ACTIVE(b.status) - ACTIVE(a.status)) || (b.updated > a.updated ? 1 : -1),
+  placed: (a, b) => parseDay(b.placed) - parseDay(a.placed) || (b.updated > a.updated ? 1 : -1),
+  total: (a, b) => (b.total || 0) - (a.total || 0),
+};
+function parseDay(s) { const d = /^\d{4}-\d\d-\d\d$/.test(s || "") ? new Date(s + "T00:00") : new Date(s); return isNaN(d) ? new Date(0) : d; }
+
+// ---------------------------------------------------------------- header + KPIs + filters
+function renderMeta() {
+  const m = $("#meta");
+  m.textContent = DATA.generated ? `Updated ${ago(DATA.generated)}` : "Not scanned yet";
+  m.title = `${DATA.account || ""}\nLast inbox check: ${DATA.generated ? fmtDT(DATA.generated) : "never"}`;
+  m.classList.toggle("old", !!DATA.generated && daysAgo(DATA.generated) * 1440 > 75);
+  $("#error").innerHTML = DATA.error ? `<div class="error">${esc(DATA.error)}</div>` : "";
+  $("#foot").textContent = `${DATA.account || ""} · inbox is only ever read, never changed`;
+}
+
+function renderKpis() {
+  const scoped = DATA.orders.filter(o => state.retailer === "All" || o.retailer === state.retailer);
+  const act = scoped.filter(o => ACTIVE(o.status));
+  const count = f => scoped.filter(f).length;
+  const week = act.filter(o => { const e = etaInfo(o); return e && !e.late && dayDiff(e.day) <= 7; }).length;
+  const late = act.filter(isLate).length, ofd = count(o => o.status === "Out for Delivery");
+  const pre = count(o => o.status === "Pre-order"), del7 = count(o => o.status === "Delivered" && daysAgo(o.updated) <= 7);
+  const tiles = [
+    ["Active", act.length, "--accent", "Active", week ? `${week} arriving within 7 days` : "nothing due this week", ""],
+    ["Out for delivery", ofd, "--s-ofd", "Out for Delivery", ofd ? "arriving today" : "none today", ""],
+    ["Shipped", count(o => o.status === "Shipped" || o.status === "Delayed"), "--s-shipped", "Shipped", late ? `${late} past their estimate` : "all on schedule", late ? "warn" : ""],
+    ["Awaiting shipment", count(o => o.status === "Order Confirmed" || o.status === "Pre-order"), "--s-confirmed", "Order Confirmed", pre ? plural(pre, "pre-order") : "not shipped yet", ""],
+    ["Delivered · 30d", count(o => o.status === "Delivered" && daysAgo(o.updated) <= 30), "--s-delivered", "Delivered", `${del7} in the last 7 days`, ""],
+    ["Open order value", money0(act.reduce((a, o) => a + (o.total || 0), 0)), "--muted", "insights", `across ${plural(act.length, "order")}`, ""],
+  ];
+  if (HAS_MK) {
+    const t = marketTotals(act);
+    tiles.push(["Cards on the way", money0(t.value), "--accent", "market", `${signed(t.gain)} vs paid`, t.gain > 0 ? "up" : t.gain < 0 ? "dn" : ""]);
+  }
+  const on = s => state.tab === "orders" && !state.quick && state.status === s;
+  $("#kpis").innerHTML = tiles.map(([l, n, c, s, d, cls]) =>
+    `<button class="kpi ${on(s) ? "on" : ""}" data-status="${s}" style="--c:var(${c})"><div class="l">${l}</div><div class="n">${n}</div><div class="d ${cls}">${esc(d)}</div></button>`).join("");
+}
+$("#kpis").onclick = e => {
+  const k = e.target.closest(".kpi");
+  if (!k) return;
+  if (k.dataset.status === "market") { state.tab = "market"; state.mscope = "way"; }
+  else if (k.dataset.status === "insights") state.tab = "insights";
+  else { state.status = k.dataset.status; state.quick = null; state.tab = "orders"; }
+  render();
+};
+
+function renderFilters() {
+  const retailers = ["All", ...new Set(DATA.orders.map(o => o.retailer))];
+  $("#retailers").innerHTML = retailers.map(r => {
+    const n = DATA.orders.filter(o => (r === "All" || o.retailer === r) && ACTIVE(o.status)).length;
+    const dot = RETAILER_LOOK[r] ? `<span class="dot" style="background:${RETAILER_LOOK[r][0]}"></span>` : "";
+    return `<button class="chip ${state.retailer === r ? "on" : ""}" data-r="${esc(r)}" title="${n} active">${dot}${esc(r)} <span class="c">${n}</span></button>`;
+  }).join("");
+  const scoped = DATA.orders.filter(o => state.retailer === "All" || o.retailer === state.retailer);
+  const n = s => s === "Active" ? scoped.filter(o => ACTIVE(o.status)).length : s === "All" ? scoped.length : scoped.filter(o => o.status === s).length;
+  $("#statuses").innerHTML = ["Active", "All", ...STATUS_ORDER].filter(s => n(s) || state.status === s || s === "Active").map(s =>
+    `<button class="chip ${!state.quick && state.status === s ? "on" : ""}" data-s="${s}">${STATUS_COLOR[s] ? `<span class="dot" style="background:${sc(s)}"></span>` : ""}${s} <span class="c">${n(s)}</span></button>`).join("");
+  const quick = Object.entries(QUICK).map(([k, [label, f, c]]) => [k, label, scoped.filter(f).length, c]).filter(q => q[2] || state.quick === q[0]);
+  $("#quick-bar").hidden = !quick.length;
+  $("#quick").innerHTML = quick.map(([k, label, c, col]) => `<button class="chip q ${state.quick === k ? "on" : ""}" data-q="${k}" style="--c:var(${col})">${label} <span class="c">${c}</span></button>`).join("")
+    + (quick.some(q => q[0] === "fresh") ? `<button class="btn sm" data-seen title="Clear the 'new' dots">Mark all seen</button>` : "");
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === state.tab));
+  $("#sort").value = SORTS[state.sort] ? state.sort : (state.sort = "smart");
+  document.body.dataset.tab = state.tab;
+}
+$("#retailers").onclick = e => { const b = e.target.closest("[data-r]"); if (b) { state.retailer = b.dataset.r; render(); } };
+$("#statuses").onclick = e => { const b = e.target.closest("[data-s]"); if (b) { state.status = b.dataset.s; state.quick = null; render(); } };
+$("#quick").onclick = e => {
+  if (e.target.closest("[data-seen]")) { BASE = new Date().toISOString(); try { sessionStorage.setItem("ot-base", BASE); } catch (x) {} if (state.quick === "fresh") state.quick = null; return render(); }
+  const b = e.target.closest("[data-q]"); if (b) { state.quick = state.quick === b.dataset.q ? null : b.dataset.q; render(); }
+};
+$("#tabs").onclick = e => { const b = e.target.closest("[data-tab]"); if (b) { state.tab = b.dataset.tab; render(); } };
+$("#sort").onchange = e => { state.sort = e.target.value; render(); };
+
+// ---------------------------------------------------------------- order cards
+function shipToHtml(o) {
+  const moved = o.tracking.filter(t => rdResult(t.number)?.action === "redirected").map(t => t.number);
+  const addr = o.ship_to
+    ? esc(o.ship_to.replace(/ \(city only\)$/, "")) + (o.ship_to.endsWith("(city only)") ? ` <span class="sub">· only the city is in ${esc(o.retailer)}'s emails</span>` : "")
+    : `<span class="sub">not in the emails for this order</span>`;
+  return `${addr}${moved.length && RD.destination
+    ? `<div class="sub" style="color:var(--s-delivered)">Redirected to ${esc(RD.destination)}${o.tracking.length > 1 ? ` (${moved.map(esc).join(", ")})` : ""}</div>` : ""}`;
+}
+
+function itemLi(i) {
+  const live = i.qty - (i.cancelled || 0);
+  const nm = i.name.endsWith(" (unnamed)") ? `${esc(i.name.slice(0, -10))} <span class="sub">· item names not in email</span>` : esc(i.name);
+  return `<li class="${live <= 0 ? "x" : ""}" title="${esc(i.name)}">${thumb(i)}<div style="flex:1;min-width:0"><span class="nm">${nm}</span>${mktLine(i)}</div><span class="q">×${live > 0 ? live : i.qty}${i.cancelled && live > 0 ? ` <s>${i.qty}</s>` : ""}${i.price != null ? " · " + money(i.price) : ""}</span></li>`;
+}
+
+function stepsHtml(o) {
+  const stage = o.status === "Delayed" ? (o.tracking.length ? 2 : 1) : STAGE[o.status] ?? 1;
+  return `<div class="steps" style="--c:${sc(o.status)}" data-tip="${["Cancelled", "Ordered, not shipped yet", "Shipped", "Out for delivery", "Delivered"][stage]}">${[1, 2, 3, 4].map(k => `<i class="${k <= stage ? "f" : ""}"></i>`).join("")}</div>`;
+}
+
+function orderHtml(o) {
+  const open = state.open.has(o.key), shown = open ? o.items : o.items.slice(0, 3), look = RETAILER_LOOK[o.retailer];
+  const items = o.items.length
+    ? `<ul class="items">${shown.map(itemLi).join("")}</ul>${o.items.length > shown.length ? `<div class="more">+ ${plural(o.items.length - shown.length, "more item")}</div>` : ""}`
+    : `<ul class="items"><li>${thumb({})}<span class="nm sub" style="margin:0">${esc(o.history[o.history.length - 1].subject)}</span></li></ul>`;
+  const track = o.tracking.map(t => `<div class="tk">${state.picking && canRedirect(t, o)
+      ? `<input type="checkbox" data-pick="${esc(t.number)}" ${state.picked.has(t.number) ? "checked" : ""} aria-label="Redirect ${esc(t.number)}">` : ""}${
+    t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.carrier)} ${esc(t.number)}</a>` : `<span class="sub" style="margin:0">${esc(t.carrier)} ${esc(t.number)}</span>`}<button class="ic" data-act="copy" data-copy="${esc(t.number)}" title="Copy tracking number" aria-label="Copy tracking number">${ICON.copy}</button>${rdBadge(t.number)}</div>`).join("")
+    || (ACTIVE(o.status) ? `<span class="sub" style="margin:0">no tracking yet</span>` : "");
+  const e = etaInfo(o);
+  const etaHtml = e ? `<div class="eta ${e.cls}">${esc(e.label)}${o.eta ? `<small>${esc(o.eta)}</small>` : ""}</div>`
+    : `<div class="sub">${o.manual ? "marked received by you" : o.eta && ACTIVE(o.status) ? "ETA " + esc(o.eta) : "updated " + fmtDate(o.updated)}</div>`;
+  return `<article class="order ${open ? "open" : ""} ${o.m.pinned ? "pinned" : ""}" data-key="${esc(o.key)}">
+    <div class="row">
+      <div class="c-id"><span class="badge" style="${look ? `--rc:${look[0]};--rt:${look[1]}` : ""}">${esc(o.retailer[0])}</span>
+        <div style="min-width:0"><div class="retailer">${esc(o.retailer)}${isNew(o) ? `<span class="newdot" data-tip="New email since your last visit"></span>` : ""}</div>
+        <div class="ordno">${o.order ? `<a href="${esc(o.link)}" target="_blank" rel="noopener" title="Open this order at ${esc(o.retailer)}">#${esc(o.order)}</a>` : "no order #"}</div>
+        ${o.name ? `<div class="sub">${esc(o.name)}</div>` : ""}</div></div>
+      <div class="c-items">${items}${o.m.note && !open ? `<div class="note-line" title="${esc(o.m.note)}"><b>Note</b><span>${esc(o.m.note)}</span></div>` : ""}</div>
+      <div class="c-status">${pill(o.status, o.delayed)}${stepsHtml(o)}${etaHtml}${
+        o.away && ACTIVE(o.status) ? `<div class="sub away-tag" title="${esc(o.ship_to)}">→ ${esc(o.ship_to.split(",")[0])}</div>` : ""}${
+        isQuiet(o) ? `<div class="sub" style="color:var(--s-delayed)">no email in ${Math.floor(daysAgo(o.updated))} days, check tracking</div>` : ""}</div>
+      <div class="c-track">${track}</div>
+      <div class="c-end"><div class="money">${money(o.total)}</div>
+        <div class="rowacts">${LIVE ? `<button class="ic star ${o.m.pinned ? "on" : ""}" data-act="pin" title="${o.m.pinned ? "Unpin" : "Pin to the top"}" aria-label="Pin order">${ICON.star}</button>` : ""}<button class="ic" data-act="toggle" title="Details" aria-label="Show details" aria-expanded="${open}">${ICON.chev}</button></div></div>
+    </div>${open ? detailHtml(o) : ""}
+  </article>`;
+}
+
+function detailHtml(o) {
+  const hist = [...o.history].reverse().map(h => `<li><span class="tdot" style="--c:${sc(h.status)}"></span><div><b>${esc(h.status)}</b> <span class="sub">· ${fmtDT(h.date)}</span><div class="sub">${esc(h.subject)}</div></div></li>`).join("");
+  return `<div class="detail">
+    <div><h3>Timeline · ${plural(o.history.length, "email")}</h3><ul class="tl">${o.manual ? `<li><span class="tdot" style="--c:${sc("Delivered")}"></span><div><b>Received</b> <span class="sub">· marked by you${o.m.received_at ? " " + fmtDT(o.m.received_at) : ""}</span></div></li>` : ""}${hist}</ul></div>
+    <div>
+      <h3>Details</h3>
+      <dl class="facts"><dt>Shipping to</dt><dd>${shipToHtml(o)}</dd><dt>Placed</dt><dd>${fmtDate(parseDay(o.placed))} <span class="sub">· ${Math.max(0, Math.floor(daysAgo(parseDay(o.placed))))} days ago</span></dd>${
+        o.eta && ACTIVE(o.status) ? `<dt>Estimate</dt><dd>${esc(o.eta)}</dd>` : ""}<dt>Total</dt><dd>${money(o.total) || `<span class="sub">not in the emails</span>`}</dd></dl>
+      ${LIVE ? `<h3>Your note</h3><textarea data-note maxlength="500" placeholder="Anything to remember about this order…">${esc(o.m.note || "")}</textarea>` : o.m.note ? `<h3>Your note</h3><div>${esc(o.m.note)}</div>` : ""}
+      <div class="dacts">${LIVE && (ACTIVE(o.raw)) ? `<button class="btn sm" data-act="recv">${o.manual ? "Undo “received”" : "Mark as received"}</button>` : ""}${
+        o.order ? `<button class="btn sm" data-act="copy" data-copy="${esc(o.order)}">Copy order #</button><a class="btn sm" href="${esc(o.link)}" target="_blank" rel="noopener" style="text-decoration:none">Open at ${esc(o.retailer)}</a>` : ""}</div>
+    </div>
+  </div>`;
+}
+
+function sorted(list) {
+  const by = SORTS[state.sort] || SORTS.smart;
+  return list.sort((a, b) => (!!b.m.pinned - !!a.m.pinned) || by(a, b));
+}
+
+function renderOrders(list) {
+  sorted(list);
+  const shown = list.slice(0, state.limit);
+  $("#view").innerHTML = list.length ? `<div class="list">${shown.map(orderHtml).join("")}</div>${
+      list.length > shown.length ? `<div style="text-align:center;margin-top:14px"><button class="btn" data-act="all">Show all ${list.length} orders</button></div>` : ""}`
+    : `<div class="empty"><b>No orders match</b>${state.q ? "Try a shorter search, or " : "Try "}a different filter.${state.q || state.quick || state.status !== "Active" || state.retailer !== "All" ? ` <div style="margin-top:12px"><button class="btn" data-act="reset">Reset filters</button></div>` : ""}</div>`;
+}
+
+// One listener for everything inside the view (cards are re-rendered often).
+$("#view").addEventListener("click", e => {
+  const act = e.target.closest("[data-act]")?.dataset.act, card = e.target.closest(".order");
+  const o = card && DATA.orders.find(x => x.key === card.dataset.key);
+  if (act === "copy") return copy(e.target.closest("[data-act]").dataset.copy);
+  if (act === "all") { state.limit = Infinity; return render(); }
+  if (act === "reset") { Object.assign(state, {q: "", quick: null, status: "Active", retailer: "All", awayOnly: false}); $("#q").value = ""; return render(); }
+  if (act === "day") { const g = document.getElementById(e.target.closest("[data-act]").dataset.go); if (g) g.scrollIntoView({behavior: "smooth", block: "start"}); return; }
+  if (act === "mscope") { state.mscope = e.target.closest("[data-act]").dataset.m; return render(); }
+  if (act === "relink") { const b = e.target.closest("[data-act]"); return relink(JSON.parse(b.dataset.relink), b); }
+  if (!o) return;
+  if (act === "pin") return setMeta(o.key, {pinned: !o.m.pinned}, o.m.pinned ? "Unpinned" : "Pinned to the top");
+  if (act === "recv") return setMeta(o.key, {received: !o.manual}, o.manual ? "Back to active" : "Marked as received");
+  if (act === "toggle" || (!e.target.closest("a, input, textarea, button, .detail") && !String(getSelection()))) {
+    state.open.has(o.key) ? state.open.delete(o.key) : state.open.add(o.key);
+    card.outerHTML = orderHtml(o);
+  }
+});
+$("#view").addEventListener("change", e => {
+  const c = e.target;
+  if (c.matches("input[data-pick]")) { c.checked ? state.picked.add(c.dataset.pick) : state.picked.delete(c.dataset.pick); renderSelbar(); }
+  if (c.matches("textarea[data-note]")) { const k = c.closest(".order").dataset.key; setMeta(k, {note: c.value}, "Note saved"); }
+});
+
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) { const t = Object.assign(document.createElement("textarea"), {value: text}); document.body.append(t); t.select(); document.execCommand("copy"); t.remove(); }
+  toast(`Copied ${text}`);
+}
+let toastTimer;
+function toast(msg, bad) { const t = $("#toast"); t.textContent = msg; t.className = bad ? "bad" : ""; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, bad ? 5000 : 1800); }
+document.addEventListener("mousemove", e => {
+  const tip = $("#tip"), t = e.target.closest?.("[data-tip]");
+  if (!t) { tip.hidden = true; return; }
+  tip.textContent = t.dataset.tip; tip.hidden = false;
+  tip.style.left = Math.max(8, Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8)) + "px";
+  tip.style.top = (e.clientY + 18 + tip.offsetHeight > innerHeight ? e.clientY - tip.offsetHeight - 10 : e.clientY + 18) + "px";
+});
+
+// ---------------------------------------------------------------- arriving (active orders by expected day)
+function renderArriving() {
+  const list = DATA.orders.filter(o => ACTIVE(o.status) && matches(o, true));
+  if (!list.length) { $("#view").innerHTML = `<div class="empty"><b>Nothing on the way</b>Active orders show up here by expected delivery day.</div>`; return; }
+  const late = [], none = [], days = new Map();
+  for (const o of list) {
+    const e = etaInfo(o);
+    if (!e) none.push(o); else if (e.late) late.push(o);
+    else { const k = +e.day; days.set(k, [...(days.get(k) || []), o]); }
+  }
+  const t0 = +today0(), max = Math.max(1, ...[...days.values()].map(v => v.length));
+  const strip = Array.from({length: 14}, (_, k) => {
+    const d = new Date(t0); d.setDate(d.getDate() + k);
+    const n = (days.get(+d) || []).length;
+    return `<div class="day ${n ? "has" : ""} ${k === 0 ? "today" : ""}" ${n ? `data-act="day" data-go="g${+d}" data-tip="${fmtDay(d)}: ${plural(n, "order")} expected"` : `data-tip="${fmtDay(d)}: nothing expected"`}>
+      <span class="wd">${k === 0 ? "Today" : d.toLocaleDateString(undefined, {weekday: "short"})}</span><span class="dn">${d.getDate()}</span>
+      <span class="col">${n ? `<i style="height:${Math.round(Math.max(6, n / max * 40))}px"></i>` : ""}</span><span class="ct">${n || 0}</span></div>`;
+  }).join("");
+  const group = (id, cls, title, sub, orders) => orders.length ? `<div class="grp ${cls}" id="${id}"><h2>${title}</h2><span class="sub">${sub}</span></div><div class="list">${sorted(orders).map(orderHtml).join("")}</div>` : "";
+  $("#view").innerHTML = `<div class="strip" role="img" aria-label="Orders expected per day, next 14 days">${strip}</div>`
+    + group("g-late", "late", "Past their estimate", `${plural(late.length, "order")} · check the tracking`, late)
+    + [...days.keys()].sort((a, b) => a - b).map(k => {
+        const d = new Date(k), n = dayDiff(d), v = days.get(k);
+        return group("g" + k, "", n === 0 ? "Today" : n === 1 ? "Tomorrow" : fmtDay(d), `${n > 1 ? `in ${n} days · ` : n <= 1 ? fmtDay(d) + " · " : ""}${plural(v.length, "order")}${v.some(o => parseEta(o) && +parseEta(o).end !== +parseEta(o).start) ? " · earliest day of the delivery window" : ""}`, v);
+      }).join("")
+    + group("g-none", "", "No delivery estimate yet", plural(none.length, "order"), none);
+}
+
+// ---------------------------------------------------------------- items on the way
+function renderItems(list) {
+  const agg = new Map();
+  for (const o of list) for (const i of o.items) {
+    const live = i.qty - (i.cancelled || 0);
+    if (live <= 0) continue;
+    const k = o.retailer + "|" + i.name.toLowerCase();
+    const a = agg.get(k) || {retailer: o.retailer, name: i.name, qty: 0, orders: 0, price: i.price, statuses: {}};
+    a.qty += live; a.orders += 1; a.price = a.price ?? i.price; a.statuses[o.status] = (a.statuses[o.status] || 0) + live;
+    if (!a.img && i.img) { a.img = i.img; a.img_borrowed = i.img_borrowed; }
+    if (a.mkt == null && mkt(i) != null) { a.mkt = mkt(i); a.tcg = i.tcg; }
+    agg.set(k, a);
+  }
+  const rows = [...agg.values()].sort((a, b) => b.qty - a.qty);
+  const tq = rows.reduce((a, r) => a + r.qty, 0), tv = rows.reduce((a, r) => a + (r.price != null ? r.price * r.qty : 0), 0);
+  $("#view").innerHTML = rows.length ? `<div class="tablewrap"><table class="agg"><thead><tr><th>Product</th><th>Retailer</th><th>Status</th><th class="num">Orders</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Value</th>${HAS_MK ? `<th class="num">Market</th><th class="num">Gain</th>` : ""}</tr></thead><tbody>${
+    rows.map(r => `<tr><td><div class="prod">${thumb(r)}<span>${esc(r.name)}</span></div></td><td>${esc(r.retailer)}</td><td>${Object.entries(r.statuses).map(([s, n]) => `${pill(s)} <span class="sub">${n}</span>`).join(" ")}</td><td class="num">${r.orders}</td><td class="num">${r.qty}</td><td class="num">${money(r.price)}</td><td class="num">${r.price != null ? money(r.price * r.qty) : ""}</td>${HAS_MK ? `<td class="num">${r.mkt != null ? `<a class="mkt" href="${esc(MK.products[r.tcg.ids[0]].url)}" target="_blank" rel="noopener">${money(r.mkt)}</a>` : ""}</td><td class="num">${r.mkt != null && r.price != null ? gainHtml((r.mkt - r.price) * r.qty) : ""}</td>` : ""}</tr>`).join("")
+  }</tbody><tfoot><tr><td>${plural(rows.length, "product")}</td><td></td><td></td><td></td><td class="num">${tq}</td><td></td><td class="num">${money(tv)}</td>${HAS_MK ? "<td></td><td></td>" : ""}</tr></tfoot></table></div>` : `<div class="empty"><b>No items match</b>Try a different filter.</div>`;
+}
+
+// ---------------------------------------------------------------- spending
+function renderInsights() {
+  const scope = DATA.orders.filter(o => state.retailer === "All" || o.retailer === state.retailer);
+  const kept = scope.filter(o => o.status !== "Cancelled"), cancelled = scope.filter(o => o.status === "Cancelled");
+  const sum = l => l.reduce((a, o) => a + (o.total || 0), 0);
+  const noTotal = kept.filter(o => o.total == null).length;
+  const stats = [
+    ["Ordered (kept)", money0(sum(kept)), plural(kept.length, "order")],
+    ["Still on the way", money0(sum(kept.filter(o => ACTIVE(o.status)))), plural(kept.filter(o => ACTIVE(o.status)).length, "order")],
+    ["Delivered", money0(sum(kept.filter(o => o.status === "Delivered"))), plural(kept.filter(o => o.status === "Delivered").length, "order")],
+    ["Cancelled", money0(sum(cancelled)), scope.length ? `${Math.round(cancelled.length / scope.length * 100)}% of ${scope.length} orders` : ""],
+    ["Average order", kept.length - noTotal ? money(sum(kept) / (kept.length - noTotal)) : "—", "orders that were kept"],
+  ];
+  // spend per week (Mon–Sun) by the day the order was placed
+  const wk = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return +x; };
+  const weeks = new Map();
+  for (const o of kept) { const d = parseDay(o.placed); if (+d) { const w = weeks.get(wk(d)) || {v: 0, n: 0}; w.v += o.total || 0; w.n++; weeks.set(wk(d), w); } }
+  let wHtml = `<div class="empty">No orders yet.</div>`;
+  if (weeks.size) {
+    const keys = []; for (let c = new Date(Math.min(...weeks.keys())), end = wk(new Date()); +c <= end; c.setDate(c.getDate() + 7)) keys.push(wk(c));
+    const max = Math.max(...[...weeks.values()].map(w => w.v), 1);
+    wHtml = `<div class="sub">Busiest week: ${money0(max)}</div><div class="weeks">${keys.map(k => { const w = weeks.get(k) || {v: 0, n: 0};
+      return `<div class="w" data-tip="Week of ${fmtDate(new Date(k))}: ${money(w.v)} · ${plural(w.n, "order")}">${w.v ? `<i style="height:${Math.max(2, w.v / max * 100)}%"></i>` : ""}</div>`; }).join("")}</div>
+      <div class="wlab">${keys.map((k, n) => { const d = new Date(k); return `<span>${n === 0 || d.getDate() <= 7 ? d.toLocaleDateString(undefined, {month: "short"}) : ""}</span>`; }).join("")}</div>`;
+  }
+  const byR = new Map();
+  for (const o of scope) { const r = byR.get(o.retailer) || {v: 0, n: 0, c: 0}; if (o.status === "Cancelled") r.c++; else { r.v += o.total || 0; r.n++; } byR.set(o.retailer, r); }
+  const rmax = Math.max(...[...byR.values()].map(r => r.v), 1);
+  const rHtml = [...byR].sort((a, b) => b[1].v - a[1].v).map(([name, r]) =>
+    `<div class="hb" data-tip="${esc(name)}: ${money(r.v)} over ${plural(r.n, "kept order")}, ${r.c} cancelled"><div><b>${esc(name)}</b><div class="sub" style="margin:0">${plural(r.n, "order")}${r.c ? ` · ${r.c} cancelled` : ""}</div></div><div class="track"><i style="width:${r.v / rmax * 100}%"></i></div><div class="v">${money0(r.v)}</div></div>`).join("");
+  const prod = new Map();
+  for (const o of kept) for (const i of o.items) {
+    const q = liveQty(i); if (!q || i.name.endsWith("(unnamed)")) continue;
+    const p = prod.get(i.name.toLowerCase()) || {name: i.name, qty: 0, v: 0, img: null};
+    p.qty += q; p.v += (i.price || 0) * q; p.img = p.img || i.img; prod.set(i.name.toLowerCase(), p);
+  }
+  const top = [...prod.values()].sort((a, b) => b.qty - a.qty).slice(0, 8);
+  $("#view").innerHTML = `<div class="stats">${stats.map(([l, n, d]) => `<div class="stat"><div class="l">${l}</div><div class="n">${n}</div><div class="sub" style="margin:0">${esc(d)}</div></div>`).join("")}</div>
+    <div class="cards">
+      <div class="card wide"><h2>Spend per week</h2><div class="sub" style="margin:0">Kept orders by the day they were placed${state.retailer !== "All" ? ` · ${esc(state.retailer)}` : ""} · hover a bar for the amount</div>${wHtml}</div>
+      <div class="card"><h2>By retailer</h2><div class="sub" style="margin:0 0 6px">Order totals, cancelled orders left out</div>${rHtml || `<div class="empty">No orders.</div>`}</div>
+      <div class="card"><h2>Most bought</h2><div class="sub" style="margin:0">By quantity across kept orders</div><ul class="toplist">${top.map(p =>
+        `<li>${thumb(p)}<span class="nm" title="${esc(p.name)}">${esc(p.name)}</span><b class="num">×${p.qty}</b><span class="sub num" style="margin:0;min-width:70px;text-align:right">${p.v ? money0(p.v) : ""}</span></li>`).join("") || `<li class="sub">No named items yet.</li>`}</ul></div>
+    </div>
+    <div class="sub" style="margin-top:12px">Covers the last ~120 days of order emails.${noTotal ? ` ${plural(noTotal, "kept order")} had no total in the emails and count as $0.` : ""}</div>`;
+}
+
+function exportCsv() {
+  const rows = [["Retailer", "Order #", "Status", "Placed", "Last update", "ETA", "Item", "Qty", "Unit price", "Order total", "Tracking", "Shipping to", "Name on order", "Note"]];
+  const list = sorted(DATA.orders.filter(o => matches(o, state.tab !== "orders" && state.tab !== "items")));
+  for (const o of list) for (const i of (o.items.length ? o.items : [{name: "", qty: "", price: null}]))
+    rows.push([o.retailer, o.order, o.status, fmtDate(parseDay(o.placed)), fmtDT(o.updated), o.eta, i.name, i.qty === "" ? "" : liveQty(i), i.price, o.total,
+      o.tracking.map(t => `${t.carrier} ${t.number}`).join("; "), o.ship_to, o.name, o.m.note]);
+  const cell = v => { let s = String(v ?? ""); if (/^[=+\-@]/.test(s) && isNaN(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
+  const a = Object.assign(document.createElement("a"), {href: URL.createObjectURL(new Blob(["﻿" + rows.map(r => r.map(cell).join(",")).join("\r\n")], {type: "text/csv"})),
+    download: `orders-${new Date().toISOString().slice(0, 10)}.csv`});
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast(`Exported ${plural(list.length, "order")}`);
+}
+$("#export").onclick = exportCsv;
+
+// ---------------------------------------------------------------- shipping redirector
+// The work is done by RedirectShipment\redirect.py; this page only picks packages, starts a run
+// and passes along the UPS passcode. Final outcomes are never offered again.
+const RD_LOOK = {
+  "redirected": ["redirected", "--s-delivered"],
+  "already correct": ["already yours", "--muted"],
+  "submitted, unconfirmed": ["submitted · check carrier", "--s-delayed"],
+  "needs paid redirect": ["paid redirect only", "--s-delayed"],
+  "set aside: economy service": ["economy · no free fix", "--muted"],
+  "redirect not offered": ["redirect not offered", "--muted"],
+  "unknown carrier": ["unknown carrier", "--muted"],
+  "locked out by carrier": ["locked by UPS today", "--s-cancelled"],
+  "held until tomorrow: passcode limit": ["held until tomorrow", "--s-delayed"],
+  "blocked": ["blocked · will retry", "--s-cancelled"],
+  "error": ["failed · will retry", "--s-cancelled"],
+  "stopped: fee or restriction": ["stopped: fee", "--s-cancelled"],
+};
+const rdResult = n => (RD.results || {})[n];
+const rdFinal = n => (RD.final || []).includes(rdResult(n)?.action);
+const rdRunning = () => RD.run && RD.run.running;
+function canRedirect(t, o) {
+  return LIVE && RD.available && (t.carrier === "UPS" || t.carrier === "FedEx") && ACTIVE(o.status)
+    && !rdFinal(t.number) && !(RD.banked || {})[t.number] && !(rdRunning() && RD.run.numbers.includes(t.number));
+}
+function rdTag(label, c, title) { return ` <span class="rd" style="--c:var(${c})" title="${esc(title || "")}">${esc(label)}</span>`; }
+function rdBadge(n) {
+  if (!RD.available) return "";
+  const run = RD.run;
+  if (run && run.running && run.numbers.includes(n)) {
+    if (run.waiting === n) return rdTag("waiting for passcode", "--s-ofd");
+    if (run.current && run.current.number === n) return rdTag("redirecting…", "--accent");
+    if (!rdFinal(n)) return rdTag("queued", "--accent");
+  }
+  const r = rdResult(n);
+  if (r) {
+    const [label, c] = RD_LOOK[r.action] || [r.action, "--muted"];
+    return rdTag(label + (r.action === "needs paid redirect" && r.fee ? ` ($${r.fee})` : ""), c, r.detail);
+  }
+  if ((RD.banked || {})[n]) return rdTag("economy · no free fix", "--muted", RD.banked[n]);
+  if ((RD.pending || []).includes(n)) return rdTag("queued", "--accent");
+  return "";
+}
+
+function orderOf(n) { return DATA.orders.find(o => o.tracking.some(t => t.number === n)); }
+function eligible() {
+  const out = [];
+  for (const o of DATA.orders.filter(o => matches(o))) for (const t of o.tracking) if (canRedirect(t, o)) out.push(t.number);
+  return out;
+}
+
+// ---------------------------------------------------------------- TCGplayer market prices
+// Prices come from TCGplayer via tcgcsv.com (tracker.py -> market.py), refreshed about once a day.
+const mkt = i => i.tcg && i.tcg.market != null ? i.tcg.market : null;
+const liveQty = i => Math.max(i.qty - (i.cancelled || 0), 0);
+const signed = n => (n > 0 ? "+" : n < 0 ? "−" : "") + money(Math.abs(n));
+const gainHtml = n => `<span class="chg ${n > 0 ? "up" : n < 0 ? "dn" : ""}">${n > 0 ? "▲ " : n < 0 ? "▼ " : ""}${signed(n)}</span>`;
+const pctHtml = n => n == null ? `<span class="sub">—</span>` : `<span class="chg ${n > 0 ? "up" : n < 0 ? "dn" : ""}">${n > 0 ? "▲" : n < 0 ? "▼" : "•"} ${Math.abs(n).toFixed(1)}%</span>`;
+
+function mktLine(i) {
+  const m = mkt(i);
+  if (m == null) return "";
+  const p = MK.products[i.tcg.ids[0]], n = i.tcg.ids.length;
+  return `<div class="mk"><a class="mkt" href="${esc(p.url)}" target="_blank" rel="noopener" title="TCGplayer market price${n > 1 ? `, average of ${n} styles` : `: ${esc(p.name)}`}">TCGplayer ${money(m)}${n > 1 ? " avg" : ""}</a>${
+    i.price != null ? gainHtml(m - i.price) + `<span class="sub">vs paid</span>` : ""}${n === 1 && p.chg7 != null ? `<span class="sub">7d</span>${pctHtml(p.chg7)}` : ""}</div>`;
+}
+
+function marketTotals(orders) {
+  let value = 0, gain = 0;
+  for (const o of orders) for (const i of o.items) {
+    const m = mkt(i), q = liveQty(i);
+    if (m == null || !q) continue;
+    value += m * q;
+    if (i.price != null) gain += (m - i.price) * q;
+  }
+  return {value, gain};
+}
+
+function spark(hist) {
+  if (!hist || hist.length < 2) return `<span class="sub">${hist && hist.length ? "since " + fmtDate(hist[0][0]) : ""}</span>`;
+  const W = 96, H = 26, v = hist.map(h => h[1]), lo = Math.min(...v), hi = Math.max(...v), span = hi - lo || 1;
+  const pts = hist.map((h, k) => [k / (hist.length - 1) * W, H - 3 - (h[1] - lo) / span * (H - 6)]);
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Market price, ${esc(fmtDate(hist[0][0]))} to ${esc(fmtDate(hist[hist.length - 1][0]))}"><polyline points="${pts.map(p => p.join(",")).join(" ")}"/>${
+    pts.map((p, k) => `<circle class="${k === pts.length - 1 ? "last" : ""}" cx="${p[0]}" cy="${p[1]}" r="${k === pts.length - 1 ? 2.5 : 5}" data-tip="${esc(fmtDate(hist[k][0]))}: ${money(hist[k][1])}"></circle>`).join("")}</svg>`;
+}
+
+function renderMarket() {
+  const inScope = o => (state.mscope === "way" ? ACTIVE(o.status) : o.status !== "Cancelled")
+    && (state.retailer === "All" || o.retailer === state.retailer);
+  const rows = new Map(), unmatched = new Map();
+  for (const o of DATA.orders.filter(inScope)) for (const i of o.items) {
+    const q = liveQty(i);
+    if (!i.tcg || !q) continue;
+    if (!i.tcg.ids.length) {
+      if (!i.tcg.manual) unmatched.set(i.name, (unmatched.get(i.name) || 0) + q);
+      continue;
+    }
+    const k = i.tcg.ids.join(","), r = rows.get(k) || {ids: i.tcg.ids, names: new Set(), qty: 0, paid: 0, paidQty: 0, market: mkt(i), manual: i.tcg.manual};
+    r.names.add(i.name); r.qty += q;
+    if (i.price != null) { r.paid += i.price * q; r.paidQty += q; }
+    rows.set(k, r);
+  }
+  const list = [...rows.values()].sort((a, b) => (b.market || 0) * b.qty - (a.market || 0) * a.qty);
+  let tv = 0, tg = 0, tp = 0;
+  const body = list.map(r => {
+    const p = MK.products[r.ids[0]], one = r.ids.length === 1;
+    const avgPaid = r.paidQty ? r.paid / r.paidQty : null, value = r.market != null ? r.market * r.qty : null;
+    const gain = r.market != null && r.paidQty ? (r.market - avgPaid) * r.paidQty : null;
+    tv += value || 0; tg += gain || 0; tp += r.paid;
+    const title = one ? esc(p.name) : `${esc([...r.names][0])} <span class="sub">· avg of ${r.ids.length} styles</span>`;
+    return `<tr><td><div class="prod"><img class="thumb" src="${esc(p.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"><span><a class="mkt" href="${esc(p.url)}" target="_blank" rel="noopener">${title}</a><div class="sub">${esc(p.set || "")}${r.manual ? " · matched by hand" : ""}</div></span></div></td>
+      <td class="num">${r.qty}</td><td class="num">${money(avgPaid)}</td><td class="num"><b>${money(r.market)}</b></td>
+      <td class="num">${one ? pctHtml(p.chg1) : "—"}</td><td class="num">${one ? pctHtml(p.chg7) : "—"}</td><td class="num">${one ? pctHtml(p.chg30) : "—"}</td>
+      <td>${one ? spark(p.history) : ""}</td><td class="num">${money(value)}</td><td class="num">${gain != null ? gainHtml(gain) : ""}</td>
+      ${LIVE ? `<td><button class="btn sm" data-act="relink" data-relink="${esc(JSON.stringify([...r.names]))}" title="Wrong product? Paste the right TCGplayer link">Change</button></td>` : ""}</tr>`;
+  }).join("");
+  const first = Object.values(MK.products).flatMap(p => p.history.map(h => h[0])).sort()[0];
+  $("#view").innerHTML = `<div class="mhead"><div class="chips"><button class="chip ${state.mscope === "way" ? "on" : ""}" data-act="mscope" data-m="way">On the way</button><button class="chip ${state.mscope === "all" ? "on" : ""}" data-act="mscope" data-m="all">Everything bought</button></div>
+    <div class="sub" style="margin:0">TCGplayer market prices${MK.stamp ? ` as of ${fmtDT(MK.stamp)}` : ""} · new prices about once a day${first ? ` · history since ${fmtDate(first)}` : ""}</div></div>
+    ${MK.error ? `<div class="error">${esc(MK.error)} (showing the last prices fetched)</div>` : ""}
+    ${list.length ? `<div class="tablewrap"><table class="agg"><thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Avg paid</th><th class="num">Market</th><th class="num">1d</th><th class="num">7d</th><th class="num">30d</th><th>Trend</th><th class="num">Value</th><th class="num">Gain</th>${LIVE ? "<th></th>" : ""}</tr></thead>
+      <tbody>${body}</tbody><tfoot><tr><td>Total</td><td class="num">${list.reduce((a, r) => a + r.qty, 0)}</td><td class="num">${money(tp)}</td><td></td><td></td><td></td><td></td><td></td><td class="num">${money(tv)}</td><td class="num">${gainHtml(tg)}</td>${LIVE ? "<td></td>" : ""}</tr></tfoot></table></div>`
+      : `<div class="empty"><b>No TCG products ${state.mscope === "way" ? "on the way" : "bought"}</b>Card products from your orders show up here with their TCGplayer price.</div>`}
+    ${unmatched.size ? `<h3 style="font-size:14px;margin:20px 0 8px">Not matched on TCGplayer</h3><div class="tablewrap"><table class="agg"><tbody>${[...unmatched].map(([n, q]) =>
+      `<tr><td>${esc(n)}</td><td class="num">×${q}</td>${LIVE ? `<td style="width:1%"><button class="btn sm" data-act="relink" data-relink="${esc(JSON.stringify([n]))}">Link to TCGplayer</button></td>` : ""}</tr>`).join("")}</tbody></table></div>` : ""}`;
+}
+
+async function relink(names, btn) {
+  const ref = prompt(`Paste the TCGplayer product link for:\n${names.join("\n")}\n\nType "none" if it isn't on TCGplayer, or "auto" to go back to automatic matching.`);
+  if (ref == null || !ref.trim()) return;
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const r = await (await fetch("/tcg/link", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({names, ref})})).json();
+    if (!r.ok) throw new Error(r.error || "failed");
+    location.reload();
+  } catch (e) { alert(e.message); btn.disabled = false; btn.textContent = "Retry"; }
+}
+
+function renderAway() {
+  const list = awayList(), box = $("#away");
+  box.hidden = !list.length;
+  if (!list.length) return;
+  const can = LIVE && RD.available && !rdRunning();
+  box.innerHTML = `<div class="top-l"><b>${list.length} shipped order${list.length > 1 ? "s are" : " is"} going to another address</b>${
+    can ? `<button class="btn primary" id="away-go">${state.awayOnly ? "Show all orders" : "Review &amp; redirect"}</button>` : ""}</div><ul>${
+    list.map(o => `<li><span>${esc(o.retailer)}${o.order ? ` <span class="sub">#${esc(o.order)}</span>` : ""}</span><span class="addr">→ ${esc(o.ship_to)}</span>${
+      o.tracking.map(t => `<span class="sub">${esc(t.carrier)} ${esc(t.number)}</span>${rdBadge(t.number)}`).join(" ") || `<span class="sub">no tracking yet</span>`}</li>`).join("")}</ul>`;
+  if ($("#away-go")) $("#away-go").onclick = () => {
+    if (state.awayOnly) { state.awayOnly = false; state.picking = false; state.picked.clear(); return render(); }
+    Object.assign(state, {awayOnly: true, picking: true, tab: "orders", status: "Active", retailer: "All", quick: null});
+    state.picked = new Set(list.flatMap(o => o.tracking.filter(t => canRedirect(t, o)).map(t => t.number)));
+    render();
+  };
+}
+
+function renderSelbar() {
+  $("#rd-toggle").classList.toggle("on", state.picking);
+  $("#selbar").hidden = !state.picking;
+  if (!state.picking) return;
+  const n = state.picked.size, el = eligible().length;
+  $("#sel-n").textContent = `${n} selected`;
+  $("#sel-hint").textContent = rdRunning() ? "· a redirect run is in progress" : el ? `· ${el} eligible in this view` : "· no eligible UPS / FedEx packages in this view";
+  $("#sel-go").textContent = n ? `Redirect ${n} package${n > 1 ? "s" : ""}…` : "Redirect…";
+  $("#sel-go").disabled = !n || rdRunning();
+}
+
+function openDialog(numbers, title) {
+  const d = $("#rd-dialog");
+  d.dataset.numbers = JSON.stringify(numbers);
+  $("#dlg-title").textContent = title || `Redirect ${numbers.length} package${numbers.length > 1 ? "s" : ""}?`;
+  $("#dlg-dest").textContent = RD.destination || "the address in target.json";
+  $("#dlg-list").innerHTML = numbers.map(n => {
+    const o = orderOf(n), t = o && o.tracking.find(t => t.number === n);
+    return `<li>${esc(t ? t.carrier : "")} ${esc(n)} <span class="sub">${o ? `· ${esc(o.retailer)}${o.order ? " #" + esc(o.order) : ""}` : ""}</span></li>`;
+  }).join("");
+  const fedex = numbers.filter(n => /^\d+$/.test(n)).length, banked = Object.keys(RD.banked || {}).length;
+  const notes = [
+    "UPS texts a one-time passcode to the phone on each package. Keep your phone nearby; the script presses Send to Mobile itself.",
+    `Takes about 2–3 minutes per package. The redirect Chrome window will open; leave it open.`,
+    "Each package gets one attempt. Anything needing a paid redirect or a fee is skipped, never paid.",
+  ];
+  if (numbers.length > (RD.batch || 10)) notes.push(`Runs the first ${RD.batch || 10} now; start the rest with “Run next batch” afterwards.`);
+  if (banked) notes.push(`${banked} economy (Ground Saver / SurePost) package${banked > 1 ? "s are" : " is"} rechecked first on the public tracking page (no passcode).`);
+  if (fedex) notes.push(`<span class="warn">${fedex} FedEx package${fedex > 1 ? "s" : ""}: FedEx's address form has never been tested by the script, and you must be signed in to FedEx in its Chrome window. Target FedEx orders usually say "redirect not offered".</span>`);
+  $("#dlg-notes").innerHTML = notes.map(n => `<li>${n}</li>`).join("");
+  $("#dlg-err").hidden = true;
+  $("#dlg-go").disabled = false; $("#dlg-go").textContent = "Start redirect";
+  d.showModal();
+}
+
+async function rdPost(path, body) {
+  const r = await (await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)})).json();
+  if (!r.ok) throw new Error(r.error || "request failed");
+  RD = r;
+  return r;
+}
+
+$("#dlg-cancel").onclick = () => $("#rd-dialog").close();
+$("#dlg-go").onclick = async () => {
+  const btn = $("#dlg-go");
+  btn.disabled = true; btn.textContent = "Opening Chrome…";
+  try {
+    await rdPost("/redirect/start", {numbers: JSON.parse($("#rd-dialog").dataset.numbers)});
+    $("#rd-dialog").close();
+    state.picking = false; state.picked.clear();
+    try { localStorage.removeItem("ot-run-dismissed"); } catch (e) {}
+    render(); poll();
+  } catch (e) {
+    $("#dlg-err").textContent = e.message; $("#dlg-err").hidden = false;
+    btn.disabled = false; btn.textContent = "Start redirect";
+  }
+};
+
+const EXIT_NOTE = {
+  0: "Finished.",
+  2: "Stopped: a carrier asked for a fee or showed a restriction. Nothing was paid.",
+  3: "The redirect Chrome window wasn't open.",
+};
+function renderRun() {
+  const run = RD.run, box = $("#runbox");
+  let dismissed = null;
+  try { dismissed = localStorage.getItem("ot-run-dismissed"); } catch (e) {}
+  if (!LIVE || !RD.available || !run || (!run.running && dismissed === run.started)) { box.hidden = true; return; }
+  box.hidden = false;
+  box.classList.toggle("live", run.running);
+  $("#run-ttl").innerHTML = run.running
+    ? `<span class="spin"></span>Redirecting ${run.numbers.length} package${run.numbers.length > 1 ? "s" : ""}${run.current ? ` · ${run.current.i} of ${run.current.n}: ${esc(run.current.carrier)} ${esc(run.current.number)}` : " · starting…"}`
+    : `Last redirect run · ${fmtDT(run.started)}`;
+  $("#run-dismiss").hidden = run.running;
+  $("#run-sub").innerHTML = run.running
+    ? `Started ${fmtDT(run.started)}. Packages are 60–90 s apart.`
+    : `${esc(EXIT_NOTE[run.exit_code] ?? `Ended (exit code ${run.exit_code}).`)}${run.stopped ? ` <b>${esc(run.stopped)}</b>` : ""}`;
+  const wait = $("#run-wait"), wasHidden = wait.hidden;
+  wait.hidden = !run.waiting;
+  if (run.waiting) {
+    if ($("#run-wait-num").textContent !== run.waiting) { $("#run-code").value = ""; $("#run-code-msg").textContent = ""; }
+    $("#run-wait-num").textContent = run.waiting;
+    if (wasHidden) $("#run-code").focus();
+  }
+  const pend = RD.pending || [];
+  $("#run-body").innerHTML = `<ul class="res">${run.numbers.map(n => `<li><span>${esc(n)}</span>${rdBadge(n) || `<span class="sub">not reached</span>`}${
+      rdResult(n)?.detail && !rdRunning() ? `<span class="sub">${esc(rdResult(n).detail)}</span>` : ""}</li>`).join("")}</ul>${
+    !run.running && pend.length ? `<div style="margin-top:10px"><button class="btn primary" id="run-next">Run next batch (${pend.length} pending)</button></div>` : ""}`;
+  if ($("#run-next")) $("#run-next").onclick = () => openDialog(pend, `Run the next batch (${pend.length} pending)?`);
+  const log = $("#run-log"), atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+  log.textContent = (run.log || []).join("\n");
+  if (atEnd) log.scrollTop = log.scrollHeight;
+}
+$("#run-dismiss").onclick = () => { try { localStorage.setItem("ot-run-dismissed", RD.run.started); } catch (e) {} renderRun(); };
+$("#run-code").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
+$("#run-code-form").onsubmit = async e => {
+  e.preventDefault();
+  const msg = $("#run-code-msg");
+  msg.textContent = "Sending…";
+  try {
+    await rdPost("/redirect/passcode", {number: RD.run.waiting, code: $("#run-code").value});
+    msg.textContent = "Sent. The script types it in and clicks Verify.";
+  } catch (err) { msg.textContent = err.message; }
+};
+
+function renderRedirects() {
+  const rows = Object.entries(RD.results || {}).sort((a, b) => (b[1].timestamp > a[1].timestamp ? 1 : -1));
+  const queued = (RD.pending || []).filter(n => !rdResult(n));
+  const cell = n => { const o = orderOf(n); return o ? `${esc(o.retailer)}${o.order ? ` <span class="sub">#${esc(o.order)}</span>` : ""}` : `<span class="sub">not in current orders</span>`; };
+  $("#view").innerHTML = rows.length || queued.length ? `<div class="tablewrap"><table class="agg"><thead><tr><th>Tracking</th><th>Order</th><th>Outcome</th><th>Detail</th><th>When</th></tr></thead><tbody>${
+    queued.map(n => `<tr><td>${esc(n)}</td><td>${cell(n)}</td><td>${rdBadge(n)}</td><td></td><td></td></tr>`).join("")}${
+    rows.map(([n, r]) => `<tr><td class="num" style="text-align:left">${esc(r.carrier || "")} ${esc(n)}</td><td>${cell(n)}</td><td>${rdBadge(n)}</td><td class="sub">${esc(r.detail || "")}</td><td class="sub" style="white-space:nowrap">${fmtDT(r.timestamp)}</td></tr>`).join("")
+  }</tbody></table></div>` : `<div class="empty"><b>No redirects yet</b>Use the Redirect button to pick packages.</div>`;
+}
+
+let pollTimer = null;
+async function poll() {
+  clearTimeout(pollTimer);
+  try {
+    RD = await (await fetch("/redirect/status")).json();
+    renderRun();
+    if (!(state.tab === "orders" && document.activeElement?.closest?.("#view"))) render();
+  } catch (e) {}
+  if (rdRunning()) pollTimer = setTimeout(poll, 3000);
+}
+
+let lastSig = "";
+function render() {
+  save();
+  const sig = [state.retailer, state.status, state.q, state.quick, state.sort, state.tab, state.awayOnly].join("|");
+  if (sig !== lastSig) { state.limit = 50; lastSig = sig; }
+  renderMeta(); renderKpis(); renderFilters();
+  const list = DATA.orders.filter(o => matches(o));
+  $("#cnt-orders").textContent = list.length;
+  const lateN = DATA.orders.filter(o => isLate(o) && matches(o, true)).length;
+  $("#cnt-arriving").textContent = lateN ? `${lateN} late` : DATA.orders.filter(o => ACTIVE(o.status) && matches(o, true)).length;
+  $("#cnt-arriving").classList.toggle("warn", !!lateN);
+  ({items: () => renderItems(list), redirects: renderRedirects, market: renderMarket, arriving: renderArriving, insights: renderInsights}[state.tab] || (() => renderOrders(list)))();
+  renderSelbar(); renderRun(); renderAway();
+}
+
+// ---------------------------------------------------------------- wiring
+if (LIVE && RD.available) {
+  $("#rd-toggle").hidden = false; $("#tab-rd").hidden = false;
+  $("#rd-toggle").onclick = () => { state.picking = !state.picking; state.picked.clear(); state.awayOnly = false; if (state.picking) state.tab = "orders"; render(); };
+  $("#sel-cancel").onclick = () => { state.picking = false; state.picked.clear(); state.awayOnly = false; render(); };
+  $("#sel-all").onclick = () => { eligible().forEach(n => state.picked.add(n)); render(); };
+  $("#sel-go").onclick = () => openDialog([...state.picked]);
+} else if (state.tab === "redirects") state.tab = "orders";
+if (HAS_MK) $("#tab-mk").hidden = false; else if (state.tab === "market") state.tab = "orders";
+
+const busy = () => rdRunning() || document.querySelector("dialog[open]") || state.picking || ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName);
+// Reload every 15 min for new emails, but never mid-redirect or while typing.
+setInterval(() => { if (!busy()) location.reload(); }, 900000);
+setInterval(renderMeta, 60000);
+let qTimer;
+$("#q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value.trim(); render(); }, 120); });
+
+$("#theme").onclick = () => {
+  const cur = document.documentElement.dataset.theme || "auto", next = {auto: "light", light: "dark", dark: "auto"}[cur];
+  if (next === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("ot-theme", next); } catch (e) {}
+  toast(`Theme: ${next === "auto" ? "match Windows" : next}`);
+};
+
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector("dialog[open]")) return;
+  const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName);
+  if (e.key === "Escape" && e.target.id === "q") { e.target.value = ""; state.q = ""; e.target.blur(); return render(); }
+  if (typing) return;
+  if (e.key === "/") { e.preventDefault(); $("#q").focus(); $("#q").select(); }
+  else if (e.key === "r" && !$("#refresh").hidden && !$("#refresh").disabled) $("#refresh").click();
+  else if (e.key === "t") $("#theme").click();
+  else if (/^[1-6]$/.test(e.key)) { const tabs = [...document.querySelectorAll("#tabs button:not([hidden])")]; if (tabs[e.key - 1]) tabs[e.key - 1].click(); }
+});
+
+if (LIVE) {  // only the local server (tracker.py --serve) can run a refresh or save marks
+  const btn = $("#refresh"), label = btn.querySelector("span");
+  btn.hidden = false;
+  btn.onclick = async () => {
+    btn.disabled = true; btn.classList.add("busy"); label.textContent = "Checking inbox…";
+    try {
+      const r = await (await fetch("/refresh", {method: "POST"})).json();
+      if (!r.ok) throw new Error(r.error || "refresh failed");
+      location.reload();
+    } catch (e) {
+      $("#error").innerHTML = `<div class="error">Refresh failed: ${esc(e.message)}</div>`;
+      btn.disabled = false; btn.classList.remove("busy"); label.textContent = "Refresh";
+    }
+  };
+  // marks are saved outside dashboard.html, so pick up anything newer than the last scan
+  fetch("/order/meta").then(r => r.ok ? r.json() : null).then(m => { if (m && JSON.stringify(m) !== JSON.stringify(META)) { META = m; applyMeta(); render(); } }).catch(() => {});
+}
+render();
+if (LIVE && RD.available) poll();
+</script>
+</body>
+</html>
