@@ -1,0 +1,15 @@
+From: "Amazon.com" <shipment-tracking@amazon.com>
+To: shopper@example.com
+Subject: Shipped 1 item: Toys & Games
+Date: Mon, 16 Nov 2026 12:00:00 -0500
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<div>Shipped 1 item: Toys &amp; Games</div>
+<p>Alex, your package was shipped!</p><table><tr><td>Ordered</td><td>Shipped</td><td>Out for delivery</td><td>Delivered</td></tr></table>
+<div>Arriving tomorrow</div><div>1 item: Toys &amp; Games</div><div>Alex - TESTVILLE, NC</div>
+<div>Order # 111-2223334-5556667</div>
+<table><tr><td>Total</td></tr><tr><td>$16.23</td></tr></table>
+</body></html>

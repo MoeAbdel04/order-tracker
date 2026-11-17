@@ -91,6 +91,7 @@ To keep it up to date automatically, add a Windows Task Scheduler task that runs
 | `dashboard_template.html` | The dashboard page; order data is injected into it |
 | `make_icons.py` | Generates the icons in `icons/` (needs Pillow) |
 | `track_orders.py` | Older first-draft scanner, kept for reference |
+| `tests/` | pytest suite and sample emails |
 
 Created at runtime and git-ignored, because they hold personal data:
 
@@ -100,12 +101,37 @@ Created at runtime and git-ignored, because they hold personal data:
 | `data/` | Parsed email cache, price history, order notes, logs |
 | `dashboard.html` | The generated dashboard |
 
+## Tests
+
+```
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+The tests never touch a real inbox, the Credential Manager or your order data: every path is
+pointed at a temp folder and notifications are stubbed out.
+
+| File | What it checks |
+| --- | --- |
+| `tests/test_classify.py` | Subject line → order status for every subject format the retailers send; sender → retailer; marketing is skipped |
+| `tests/test_parse_emails.py` | Sample emails in `tests/fixtures/` → order number, items, quantities, prices, total, tracking, delivery estimate, address |
+| `tests/test_build_orders.py` | Merging an order's emails: status progression, cancellations, delays, duplicates, truncated item names |
+| `tests/test_scan.py` | The inbox scan against a fake IMAP server: incremental scans, retries, and that the mailbox is only ever read |
+| `tests/test_helpers.py` | Carriers, relative delivery dates, address clean-up, home / away detection, product-name matching |
+| `tests/test_meta_and_notify.py` | Pins, notes, "mark as received", and which changes raise a notification |
+
+The sample emails are rebuilt from the layout of real ones with all personal details replaced
+(see `tests/fixtures/README.md`). Two tests are marked as expected failures; each documents a
+known parser bug listed below.
+
 ## Known gaps
 
 - Amazon confirmation emails often have no product names or prices.
 - Mattel shipping emails have no prices.
 - Pokémon Center emails have no product photos.
-- Topps parsing is untested against real order emails.
+- Topps parsing is only tested against a made-up email, not a real Topps order email.
+- A promo subject containing "on the way" is read as a shipping email.
+- The new date in Target delay emails isn't picked up.
 - Windows only (notifications, Credential Manager and shortcuts are Windows-specific).
 
 ## Contributing

@@ -1,0 +1,14 @@
+From: Topps <orders@topps.com>
+To: shopper@example.com
+Subject: Your Topps order #TP12345678 has shipped
+Date: Tue, 10 Nov 2026 13:00:00 -0500
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<p>Hi Alex, your order is on its way.</p><div>Order #TP12345678</div>
+<div>Tracking Number: 9400111899223344556677</div>
+<div>2026 Topps Chrome Baseball Hobby Box</div><div>Qty: 1</div><div>$249.99</div>
+<table><tr><td>Total</td></tr><tr><td>$267.49</td></tr></table>
+</body></html>

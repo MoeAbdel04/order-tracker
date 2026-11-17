@@ -1,0 +1,15 @@
+From: Target <orders@oe1.target.com>
+To: shopper@example.com
+Subject: =?utf-8?q?There=E2=80=99s_a_new_estimated_delivery_date_for_items_from_your_order_ending_in_5678=2E?=
+Date: Tue, 17 Nov 2026 08:00:00 -0500
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<h1>Order #902000000005678</h1>
+<p>Hi Alex,</p>
+<p>We&rsquo;ve got a quick update on the items below. The estimated delivery date is now Fri, Nov 20 .</p>
+<div>Affected items</div>
+<table><tr><td><img alt="Pokémon Trading Card Game: Mega Evolution— Delta Reign Elite Trainer Box" src="https://target.scene7.com/is/image/Target/GUEST_00000000-0000-0000-0000-000000000001?wid=120&hei=120"></td><td><div>Pokémon Trading Card Game: Mega Evolution— Delta Reign Elite Trainer Box</div><div>Qty: 1</div><div>Estimated</div><div>Fri, November 20, 2026</div></td></tr></table>
+</body></html>

@@ -1,0 +1,16 @@
+From: Mattel Creations <orders@mattel.com>
+To: shopper@example.com
+Subject: Your Mattel Creations Order # has shipped
+Date: Mon, 02 Nov 2026 15:00:00 -0500
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<p>Hey Alex, your order is on the way! Thank you for shopping with Mattel Creations.</p>
+<div>Track Package</div><div>Tracking # 1Z999AA10123456795</div>
+<div>October 29, 2026</div><div>Order # CHP10000001</div>
+<table><tr><td><img alt="Monster High The Nightmare Before Christmas Oogie Boogie Doll" src="https://cdn.shopify.com/s/files/1/0000/0000/0000/files/doll.jpg?v=1"></td><td><div>Monster High The Nightmare Before Christmas Oogie Boogie Doll</div><div>Item#: JKM56</div><div>Quantity: 2</div></td></tr></table>
+<div>Shipping Address</div><div>Alex Rivera</div><div>100 example way</div><div>testville, North Carolina 27000</div><div>United States</div>
+<div>My Account</div>
+</body></html>

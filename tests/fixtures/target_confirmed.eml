@@ -1,0 +1,26 @@
+From: Target <orders@oe1.target.com>
+To: shopper@example.com
+Subject: Thanks for shopping with us! Here's your order #:902000000001234.
+Date: Fri, 13 Nov 2026 14:05:00 -0500
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<div>Get ready! We&rsquo;ll email you when your tracking info is available.</div>
+<img alt="Target Logo" src="https://target.scene7.com/is/image/Target/logo">
+<h1>Order #902000000001234</h1>
+<p>Thanks for your order, Alex!</p>
+<p>Placed November 13, 2026</p>
+<table><tr><td>Order total</td></tr><tr><td>$107.48</td></tr></table>
+<div>Shipping</div>
+<div>Delivers to:</div>
+<div>Alex Rivera, 100 N example way, Testville, NC 27000</div>
+<table><tr><td><img alt="Lorcana Trading Card Game: Attack of The Vine! Illumineer's Trove" src="https://target.scene7.com/is/image/Target/GUEST_00000000-0000-0000-0000-000000000001?wid=120&hei=120"></td>
+<td><div>Lorcana Trading Card Game: Attack of The Vine! Illumineer's Trove</div><div>Qty: 2</div><div>$49.99 / ea</div><div>Arrives Fri, Nov 27</div></td></tr></table>
+<table><tr><td>Order Summary</td></tr><tr><td>Subtotal (2 items)</td><td>$99.98</td></tr>
+<tr><td>Estimated taxes</td><td>$7.50</td></tr><tr><td>Total</td><td>$107.48</td></tr></table>
+<table><tr><td>Perfect pairings for your order:</td></tr>
+<tr><td><img alt="Crazy Aaron's Better But..." src="https://target.scene7.com/is/image/Target/GUEST_00000000-0000-0000-0000-000000000009"></td></tr>
+<tr><td>$9.99</td></tr><tr><td>Crazy Aaron's Better But...</td></tr><tr><td><a href="https://www.target.com/">Shop now</a></td></tr></table>
+</body></html>

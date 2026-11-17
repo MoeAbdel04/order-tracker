@@ -1,0 +1,16 @@
+From: =?utf-8?q?Pok=C3=A9mon_Center?= <info@em.pokemon.com>
+To: shopper@example.com
+Subject: Thank you for shopping at PokemonCenter.com!
+Date: Thu, 15 Oct 2026 18:00:00 -0400
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<p>Hello, Alex!</p><p>Thank you for placing an order with us!</p>
+<div>Order Details</div><div>Order Number: P0040000001</div><div>Date Ordered: October 15, 2026</div>
+<div>Shipping Address:</div><div>Alex Rivera</div><div>100 Example Way Space 1</div><div>Testville, Nc 27000</div><div>US</div>
+<div>Order Summary</div>
+<div>Pokémon TCG: 30th Celebration Mini Tin – Lapras (Day)</div><table><tr><td>SKU #</td><td>: 10-10465-160</td></tr><tr><td>Qty</td><td>: 1</td></tr><tr><td>Price</td><td>: $9.99</td></tr></table><div>Pokémon TCG: 30th Celebration Mini Tin – Pikachu (Day)</div><table><tr><td>SKU #</td><td>: 10-10465-161</td></tr><tr><td>Qty</td><td>: 2</td></tr><tr><td>Price</td><td>: $9.99</td></tr></table>
+<table><tr><td>Order Subtotal</td><td>$29.97</td></tr><tr><td>Sales Tax</td><td>$2.22</td></tr><tr><td>Order Total</td><td>$32.19</td></tr></table>
+</body></html>

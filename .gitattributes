@@ -1,0 +1,2 @@
+# Sample emails are parsed byte for byte: keep their line endings the same on every OS
+*.eml text eol=lf
