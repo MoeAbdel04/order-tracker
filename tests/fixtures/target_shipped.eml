@@ -1,0 +1,21 @@
+From: Target <orders@oe.target.com>
+To: shopper@example.com
+Subject: Get ready for something special! An item from order #902000000005678 is about to ship.
+Date: Mon, 16 Nov 2026 09:30:00 -0500
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<div>Your tracking number is included in this email.</div>
+<h1>Order #902000000005678</h1>
+<p>Alex, we're getting ready to ship your order</p>
+<p>Your shipping label has been created and we processed a payment of $64.19 for your item. You&rsquo;ll find your tracking number below.</p>
+<div>Delivers to: Alex Rivera, 500 Other rd, Elsewhere, NC, 28000</div>
+<div>United Parcel Service Tracking # 1Z999AA10123456784</div>
+<table><tr><td><img alt="Pokémon Trading Card Game: Mega Evolution— Delta Reign Elite Trainer Box" src="https://target.scene7.com/is/image/Target/GUEST_00000000-0000-0000-0000-000000000001?wid=120&hei=120"></td><td><div>Pokémon Trading Card Game: Mega Evolution— Delta Reign Elite Trainer Box</div><div>Qty: 1</div></td></tr></table>
+<div>Looking for your receipt?</div>
+<table><tr><td>Check everything off your list</td></tr>
+<tr><td><img alt="Pokemon 18&quot; Sleeping Esp..." src="https://target.scene7.com/is/image/Target/GUEST_00000000-0000-0000-0000-000000000008"></td></tr>
+<tr><td>$29.99</td></tr><tr><td>Pokemon 18" Sleeping Esp...</td></tr><tr><td>Shop now</td></tr></table>
+</body></html>

@@ -1,0 +1,11 @@
+From: Target <news@em.target.com>
+To: shopper@example.com
+Subject: Weekly Ad: 20% off toys this week only
+Date: Sun, 15 Nov 2026 07:00:00 -0500
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<p>Shop the Weekly Ad. Qty: 1 coupon per guest.</p>
+</body></html>

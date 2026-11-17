@@ -13,5 +13,6 @@ backups/
 
 # Python / misc
 __pycache__/
+.pytest_cache/
 *.pyc
 .Rhistory

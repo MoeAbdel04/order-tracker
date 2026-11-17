@@ -1,0 +1,17 @@
+From: =?utf-8?q?Pok=C3=A9mon_Center?= <pokemon@pokemoncenter.narvar.com>
+To: shopper@example.com
+Subject: Your package will arrive soon!
+Date: Mon, 19 Oct 2026 10:00:00 -0400
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<h1>Your package will arrive soon!</h1><p>Hi Alex,</p>
+<p>Just a heads-up that your Pokémon Center package is on its way! Your package will be delivered soon at this address:</p>
+<div>100 example way,</div><div>Testville,</div><div>NC</div><div>27000</div>
+<p>Thank you for shopping with us!</p>
+<div>Fulfillment ID: 25000001</div><div>Order Number: P0040000001</div><div>Date Ordered: Oct 15, 2026</div>
+<div>Items Being Delivered</div>
+<div>Pokémon TCG: 30th Celebration Mini Tin – Lapras (Day)</div><div>Quantity: 1</div><div>Pokémon TCG: 30th Celebration Mini Tin – Pikachu (Day)</div><div>Quantity: 2</div>
+</body></html>

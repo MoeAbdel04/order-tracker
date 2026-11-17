@@ -1,0 +1,16 @@
+From: Target <orders@oe.target.com>
+To: shopper@example.com
+Subject: You've successfully canceled items from your order ending in 1234.
+Date: Sat, 14 Nov 2026 10:00:00 -0500
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<h1>Order #902000000001234</h1>
+<p>Hi Alex,</p>
+<p>As you requested, we have canceled the items below from your order # 902000000001234 .</p>
+<div>Canceled items</div>
+<table><tr><td><img alt="Lorcana Trading Card Game: Attack of The Vine! Illumineer's Trove" src="https://target.scene7.com/is/image/Target/GUEST_00000000-0000-0000-0000-000000000001?wid=120&hei=120"></td><td><div>Lorcana Trading Card Game: Attack of The Vine! Illumineer's Trove</div><div>Qty: 2</div></td></tr></table>
+<table><tr><td>Would these work instead?</td></tr><tr><td>$29.99</td></tr><tr><td>Disney Lorcana Trading Card...</td></tr></table>
+</body></html>

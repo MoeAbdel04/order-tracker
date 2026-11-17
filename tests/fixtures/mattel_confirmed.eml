@@ -1,0 +1,20 @@
+From: Mattel Creations <orders@mattel.com>
+To: shopper@example.com
+Subject: Your Mattel Creations Order #CHP10000001 is confirmed
+Date: Thu, 29 Oct 2026 11:00:00 -0400
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>td { font-family: Arial; }</style></head><body>
+<div>Thanks for shopping with us!</div>
+<p>Hey Alex, your order&rsquo;s been confirmed! We&rsquo;ll let you know when it ships.</p>
+<div>October 29, 2026</div><div>Order #CHP10000001</div>
+<table><tr><td>Order Total</td></tr><tr><td>$159.10</td></tr></table>
+<table><tr><td><img alt="Monster High The Nightmare Before Christmas Oogie Boogie Doll" src="https://cdn.shopify.com/s/files/1/0000/0000/0000/files/doll.jpg?v=1"></td>
+<td><div>Monster High The Nightmare Before Christmas Oogie Boogie Doll</div><div>Item #JKM56</div><div>Quantity: 2</div><div>Price: $70.00</div><div>Subtotal: $140.00</div></td></tr></table>
+<table><tr><td>Order Summary</td></tr><tr><td>Subtotal</td><td>$140.00</td></tr><tr><td>Total</td><td>$159.10</td></tr></table>
+<div>Shipping Address</div><div>Alex Rivera</div><div>100 example way</div><div>Testville, North Carolina 27000</div><div>United States</div>
+<div>Shipping Method</div><div>Standard</div>
+<div>Billing Address</div><div>Alex Rivera</div><div>100 example way</div>
+</body></html>
